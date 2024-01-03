@@ -14,7 +14,8 @@ This is the WebUI for my personal website. It is built with Next.js and NextUI.
 
 ## How to Use
 
-This project use `bun` as the runtime and package manager. You can install it following the instructions [here](https://bun.sh/).
+This project use `bun` as the runtime and package manager. You can install it following the
+instructions [here](https://bun.sh/).
 
 After installing `bun`, you can run the following commands to install the dependencies:
 
@@ -27,5 +28,3 @@ Then, you can run the following command to start the development server:
 ```bash
 bun run dev
 ```
-
-
