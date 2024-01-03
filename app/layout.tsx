@@ -2,7 +2,6 @@ import { Navbar } from "@/components/navbar";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
 import "@/styles/globals.css";
-import { Link } from "@nextui-org/react";
 import clsx from "clsx";
 import { Metadata } from "next";
 import { Providers } from "./providers";
@@ -27,7 +26,7 @@ export const viewports = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
@@ -35,18 +34,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           <div className="relative flex h-screen flex-col">
             <Navbar />
-            <main className="container mx-auto max-w-7xl flex-grow px-6 pt-16">{children}</main>
-            <footer className="flex w-full items-center justify-center py-3">
-              <Link
-                isExternal
-                className="flex items-center gap-1 text-current"
-                href="https://nextui-docs-v2.vercel.app?utm_source=next-app-template"
-                title="nextui.org homepage"
-              >
-                <span className="text-default-600">Powered by</span>
-                <p className="text-primary">NextUI</p>
-              </Link>
-            </footer>
+            <main className="container mx-auto max-w-7xl flex-grow px-6 pt-6">{children}</main>
+            <footer className="flex w-full items-center justify-center py-3"></footer>
           </div>
         </Providers>
       </body>

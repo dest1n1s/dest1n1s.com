@@ -1,26 +1,36 @@
+export type XhtmlResource = {
+  src: string;
+  html: string;
+};
+
+export type ImageResource = {
+  src: string;
+  image: Buffer;
+};
+
+export type NavPoint = {
+  src: string;
+  id: string;
+  playOrder: string;
+  title?: string;
+};
+
 export type Epub = {
-  xhtmlList: {
-    src: string;
-    html: string;
-  }[];
-  resourceList: {
-    src: string;
-    image: Buffer;
-  }[];
-  opf: {
-    toc: {
-      src: string;
-      id: string;
-      playOrder: string;
-      title?: string;
-    }[];
-    spine: string[];
-    metadata: {
-      title: string;
-      language?: string;
-      creator?: string;
-      identifier?: string;
-    };
-  };
+  xhtmlList: XhtmlResource[];
+  resourceList: ImageResource[];
   bookName: string;
+  navPoints: NavPoint[];
+  spine: string[];
+  cover?: string;
+  metadata: {
+    title: string;
+    language?: string;
+    creator?: string;
+    identifier?: string;
+  };
+};
+
+export type SinglePageXhtml = {
+  xhtmlList: XhtmlResource[];
+  navPoint: NavPoint;
 };

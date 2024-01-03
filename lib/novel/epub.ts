@@ -1,7 +1,7 @@
 import { callbackToPromise, noError } from "@/lib/utils/common";
 import { sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
 import { Container, ContainerSchema } from "@/types/epub/container";
-import { Epub } from "@/types/epub/epub";
+import { Epub, NavPoint } from "@/types/epub/epub";
 import { Opf, OpfSchema } from "@/types/epub/opf";
 import { Toc, TocSchema } from "@/types/epub/toc";
 import { R_OK } from "constants";
@@ -55,7 +55,7 @@ const getSpine = (opf: Opf) => {
 const getManifest = (opf: Opf) => {
   return opf.package.manifest[0].item.map(item => ({
     id: item.$.id,
-    href: item.$.href,
+    href: decodeURIComponent(item.$.href),
     mediaType: item.$["media-type"],
   }));
 };
@@ -74,7 +74,7 @@ const getNavPoints = (toc: Toc) => {
   return toc.ncx.navMap[0].navPoint.map(navPoint => ({
     id: navPoint.$.id,
     playOrder: navPoint.$.playOrder,
-    src: navPoint.content[0].$.src,
+    src: decodeURIComponent(navPoint.content[0].$.src),
     title: navPoint.navLabel[0].text[0]["_"],
   }));
 };
@@ -85,7 +85,7 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
   const document = dom.window.document;
   const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
     .map(link => link.getAttribute("href"))
-    .flatMap(href => (href ? [href] : []))
+    .flatMap(href => (href ? [decodeURIComponent(href)] : []))
     .map(href => join(path.split(sep).slice(0, -1).join(sep), href));
   const styles = await Promise.all(links.map(async link => await resolvePathFromZip(zip, link)));
 
@@ -95,10 +95,10 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
   const images = await Promise.all(
     Array.from(inlinedDocument.querySelectorAll("img"))
       .map(img => img.getAttribute("src"))
-      .flatMap(src => (src ? [src] : []))
+      .flatMap(src => (src ? [decodeURIComponent(src)] : []))
       .map(async src => ({
         originalSrc: src,
-        src: join("novels", bookName, "images", src.split(sep).slice(2).join("_")),
+        src: join("/", "novels", bookName, "images", src.split(sep).slice(2).join("_")),
         image: await resolveImageFromZip(zip, join(path.split(sep).slice(0, -1).join(sep), src)),
       })),
   );
@@ -109,7 +109,7 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
     if (!src) {
       return;
     }
-    const image = images.find(image => image.originalSrc === src);
+    const image = images.find(image => image.originalSrc === decodeURIComponent(src));
     if (!image) {
       return;
     }
@@ -138,7 +138,6 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
     "display",
     "duokan-text-indent",
     "border",
-    "text-align",
   ];
   inlinedDocument.querySelectorAll("*").forEach(element => {
     if (element.hasAttribute("style")) {
@@ -162,6 +161,18 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
     }
     if (element.hasAttribute("class")) {
       element.removeAttribute("class");
+    }
+    // Downgrade heading by 1 level
+    if (element.tagName.startsWith("H")) {
+      const level = parseInt(element.tagName[1]);
+      if (level >= 1 && level <= 5) {
+        const parent = element.parentElement;
+        if (parent) {
+          const newElement = document.createElement(`h${level + 1}`);
+          newElement.innerHTML = element.innerHTML;
+          parent.replaceChild(newElement, element);
+        }
+      }
     }
   });
 
@@ -247,27 +258,28 @@ export const parseEpub = async (path: string): Promise<Epub> => {
     })
     .sort((a, b) => parseInt(a.playOrder) - parseInt(b.playOrder));
 
-  // Save toc, spine and metadata into a json file
-  const opfJson = {
-    toc: convertedNavPoints,
+  const coverOriginalSrc = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
+  const coverSrc = coverOriginalSrc
+    ? resourceList.find(resource => resource.originalSrc === coverOriginalSrc)?.src
+    : undefined;
+
+  return {
+    xhtmlList,
+    resourceList,
+    navPoints: convertedNavPoints,
     spine: xhtmlList.map(xhtml => xhtml.src),
+    cover: coverSrc,
     metadata: {
       title: metadata["dc:title"][0]._,
       language: metadata["dc:language"]?.[0]?._,
       creator: metadata["dc:creator"]?.[0]?._,
       identifier: metadata["dc:identifier"]?.[0]?._,
     },
-  };
-
-  return {
-    xhtmlList,
-    resourceList,
-    opf: opfJson,
     bookName,
   };
 };
 
-export const saveEpub = async ({ xhtmlList, resourceList, opf, bookName }: Epub) => {
+export const saveEpub = async ({ xhtmlList, resourceList, bookName, ...opf }: Epub) => {
   await Promise.all(
     xhtmlList.map(async xhtml => {
       await writeFileSafe(join("data", xhtml.src), xhtml.html);
@@ -281,4 +293,58 @@ export const saveEpub = async ({ xhtmlList, resourceList, opf, bookName }: Epub)
   );
 
   await writeFileSafe(join("data", "novels", bookName, "opf.json"), JSON.stringify(opf, null, 2));
+};
+
+export const loadEpub = async (
+  bookName: string,
+  { noImage }: { noImage: boolean } = { noImage: false },
+): Promise<Epub> => {
+  const opf = JSON.parse(
+    await readFile(join("data", "novels", bookName, "opf.json"), {
+      encoding: "utf-8",
+    }),
+  );
+  const xhtmlList = await Promise.all(
+    opf.spine.map(async (src: string) => {
+      const html = await readFile(join("data", src), { encoding: "utf-8" });
+      return { src, html };
+    }),
+  );
+  const resourceList = noImage
+    ? []
+    : await Promise.all(
+        opf.resourceList.map(async (src: string) => {
+          const image = await readFile(join("data", src));
+          return { src, image };
+        }),
+      );
+  return { ...opf, xhtmlList, resourceList };
+};
+
+export const paginateEpub = ({ xhtmlList, navPoints }: Epub) => {
+  // Insert a pseudo navPoint at the beginning
+  const pseudoNavPoint: NavPoint = {
+    id: "pseudo",
+    playOrder: "-1",
+    src: xhtmlList[0].src,
+  };
+
+  const pseudoNavPoints = [pseudoNavPoint, ...navPoints];
+
+  // Segregate xhtmlList into chapters
+  const chapters = pseudoNavPoints
+    .map((navPoint, index) => {
+      const nextNavPoint = pseudoNavPoints[index + 1];
+      const startIndex = xhtmlList.findIndex(xhtml => xhtml.src === navPoint.src);
+      const endIndex = nextNavPoint
+        ? xhtmlList.findIndex(xhtml => xhtml.src === nextNavPoint.src)
+        : xhtmlList.length;
+      return {
+        navPoint,
+        xhtmlList: xhtmlList.slice(startIndex, endIndex),
+      };
+    })
+    .filter(chapter => chapter.xhtmlList.length > 0);
+
+  return chapters;
 };
