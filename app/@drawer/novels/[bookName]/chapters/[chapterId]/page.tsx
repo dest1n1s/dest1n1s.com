@@ -1,7 +1,9 @@
 "use server";
 
+import { DrawerMarker } from "@/components/drawer";
 import { paginateEpub } from "@/lib/novel/epub";
 import { loadEpubCached } from "@/lib/novel/epub.server";
+import clsx from "clsx";
 import Link from "next/link";
 
 export default async function Drawer({
@@ -17,11 +19,6 @@ export default async function Drawer({
 
   const chapters = paginateEpub(epub);
   const chapterIndex = parseInt(chapterId, 10) - 1;
-  const chapter = chapters[chapterIndex];
-
-  if (!chapter) {
-    return <div>Chapter not found</div>;
-  }
 
   // Return the toc of the book
   return (
@@ -32,17 +29,21 @@ export default async function Drawer({
       </div>
       <div className="w-full text-end font-semibold">共 {chapters.length} 章</div>
       <div className="w-full text-neutral-800 flex flex-col gap-1">
-        {chapters.map(
-          (chapter, index) =>
-            chapter.navPoint.title && (
-              <div key={index} className="border-b border-gray-400 py-2 border-opacity-30">
-                <Link href={`/novels/${bookName}/chapters/${index + 1}`}>
-                  {chapter.navPoint.title}
-                </Link>
-              </div>
-            ),
-        )}
+        {chapters.map((chapter, index) => (
+          <div
+            key={index}
+            className={clsx(
+              "border-b border-gray-400 py-2 border-opacity-30",
+              chapterIndex === index && "text-primary",
+            )}
+          >
+            <Link href={`/novels/${bookName}/chapters/${index + 1}`}>
+              {chapter.navPoint.title || "(无题)"}
+            </Link>
+          </div>
+        ))}
       </div>
+      <DrawerMarker />
     </div>
   );
 }

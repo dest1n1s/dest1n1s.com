@@ -2,7 +2,7 @@
 
 import { LayoutContext } from "@/app/providers";
 import clsx from "clsx";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 
 type DrawerProps = {
   children?: React.ReactNode;
@@ -30,4 +30,15 @@ export const Drawer: React.FC<DrawerProps> = ({ children }) => {
       {children}
     </div>
   );
+};
+
+export const DrawerMarker = () => {
+  const { setHasDrawer } = useContext(LayoutContext);
+  useEffect(() => {
+    setHasDrawer(true);
+    return () => {
+      setHasDrawer(false);
+    };
+  });
+  return <></>;
 };

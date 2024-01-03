@@ -10,6 +10,7 @@ export interface IconSwitchProps {
   classNames?: SwitchProps["classNames"];
   active: boolean;
   onActiveChange: (active: boolean) => void;
+  isDisabled?: boolean;
   ariaLabel?: string;
   activeIcon: React.ReactNode;
   inactiveIcon: React.ReactNode;
@@ -20,6 +21,7 @@ export const IconSwitch: FC<IconSwitchProps> = ({
   classNames,
   active,
   onActiveChange,
+  isDisabled,
   ariaLabel,
   activeIcon,
   inactiveIcon,
@@ -30,6 +32,7 @@ export const IconSwitch: FC<IconSwitchProps> = ({
 
   const { Component, slots, isSelected, getBaseProps, getInputProps, getWrapperProps } = useSwitch({
     isSelected: active,
+    isDisabled,
     "aria-label": ariaLabel,
     onChange,
   });

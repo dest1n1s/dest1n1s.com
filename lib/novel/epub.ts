@@ -92,12 +92,18 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
   const inlinedXhtml = inlineContent(xhtml, styles.join("\n"));
   const inlinedDom = new JSDOM(inlinedXhtml);
   const inlinedDocument = inlinedDom.window.document;
+
   const images = await Promise.all(
     Array.from(inlinedDocument.querySelectorAll("img"))
       .map(img => img.getAttribute("src"))
+      .concat(
+        Array.from(inlinedDocument.querySelectorAll("image")).map(img =>
+          img.getAttribute("xlink:href"),
+        ),
+      )
       .flatMap(src => (src ? [decodeURIComponent(src)] : []))
       .map(async src => ({
-        originalSrc: src,
+        originalSrc: join(path.split(sep).slice(0, -1).join(sep), src),
         src: join("/", "novels", bookName, "images", src.split(sep).slice(2).join("_")),
         image: await resolveImageFromZip(zip, join(path.split(sep).slice(0, -1).join(sep), src)),
       })),
@@ -109,11 +115,29 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
     if (!src) {
       return;
     }
-    const image = images.find(image => image.originalSrc === decodeURIComponent(src));
+    const image = images.find(
+      image =>
+        image.originalSrc === join(path.split(sep).slice(0, -1).join(sep), decodeURIComponent(src)),
+    );
     if (!image) {
       return;
     }
     img.setAttribute("src", image.src);
+  });
+
+  inlinedDocument.querySelectorAll("image").forEach(img => {
+    const src = img.getAttribute("xlink:href");
+    if (!src) {
+      return;
+    }
+    const image = images.find(
+      image =>
+        image.originalSrc === join(path.split(sep).slice(0, -1).join(sep), decodeURIComponent(src)),
+    );
+    if (!image) {
+      return;
+    }
+    img.setAttribute("xlink:href", image.src);
   });
 
   // Remove reserved styles
@@ -228,7 +252,7 @@ export const parseEpub = async (path: string): Promise<Epub> => {
         bookName,
       );
       return {
-        html: { ...xhtmlAndResources.html, originalSrc: item.href },
+        html: { ...xhtmlAndResources.html, originalSrc: join(rootPath, item.href) },
         images: xhtmlAndResources.images,
       };
     }),
@@ -250,7 +274,7 @@ export const parseEpub = async (path: string): Promise<Epub> => {
 
   const convertedNavPoints = navPoints
     .map(navPoint => {
-      const src = xhtmlList.find(xhtml => xhtml.originalSrc === navPoint.src)?.src;
+      const src = xhtmlList.find(xhtml => xhtml.originalSrc === join(rootPath, navPoint.src))?.src;
       if (!src) {
         throw new Error(`Src not found: ${navPoint.src}`);
       }
@@ -258,9 +282,12 @@ export const parseEpub = async (path: string): Promise<Epub> => {
     })
     .sort((a, b) => parseInt(a.playOrder) - parseInt(b.playOrder));
 
-  const coverOriginalSrc = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
+  const coverId = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
+  const coverOriginalSrc = coverId ? manifest.find(item => item.id === coverId)?.href : undefined;
   const coverSrc = coverOriginalSrc
-    ? resourceList.find(resource => resource.originalSrc === coverOriginalSrc)?.src
+    ? resourceList.find(
+        resource => resource.originalSrc === join(rootPath, decodeURIComponent(coverOriginalSrc)),
+      )?.src
     : undefined;
 
   return {

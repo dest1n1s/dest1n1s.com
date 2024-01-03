@@ -17,16 +17,18 @@ import NextLink from "next/link";
 
 import { LayoutContext } from "@/app/providers";
 import { ThemeSwitch } from "@/components/theme-switch";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { FaBars, FaBarsStaggered, FaGithub, FaSearchengin } from "react-icons/fa6";
 import { IconSwitch } from "./icon-switch";
 
-type NavbarProps = {
-  hasDrawer?: boolean;
-};
+export const Navbar = () => {
+  const { showDrawer, setShowDrawer, showNavbar, hasDrawer } = useContext(LayoutContext);
 
-export const Navbar = ({ hasDrawer = true }: NavbarProps) => {
-  const { showDrawer, setShowDrawer, showNavbar } = useContext(LayoutContext);
+  useEffect(() => {
+    if (!hasDrawer) {
+      setShowDrawer(false);
+    }
+  }, [hasDrawer, setShowDrawer]);
 
   const searchInput = (
     <Input
@@ -90,15 +92,14 @@ export const Navbar = ({ hasDrawer = true }: NavbarProps) => {
           <ThemeSwitch />
         </NavbarItem>
         <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
-        {hasDrawer && (
-          <IconSwitch
-            active={showDrawer}
-            onActiveChange={setShowDrawer}
-            ariaLabel="Show drawer"
-            activeIcon={<FaBars size={22} />}
-            inactiveIcon={<FaBarsStaggered size={22} />}
-          />
-        )}
+        <IconSwitch
+          active={showDrawer}
+          onActiveChange={setShowDrawer}
+          isDisabled={!hasDrawer}
+          ariaLabel="Show drawer"
+          activeIcon={<FaBars size={22} />}
+          inactiveIcon={<FaBarsStaggered size={22} />}
+        />
       </NavbarContent>
 
       <NavbarContent className="basis-1 pl-4 sm:hidden" justify="end">
@@ -106,15 +107,14 @@ export const Navbar = ({ hasDrawer = true }: NavbarProps) => {
           <FaGithub className="text-default-500" />
         </Link>
         <ThemeSwitch />
-        {hasDrawer && (
-          <IconSwitch
-            active={showDrawer}
-            onActiveChange={setShowDrawer}
-            ariaLabel="Show drawer"
-            activeIcon={<FaBars size={22} />}
-            inactiveIcon={<FaBarsStaggered size={22} />}
-          />
-        )}
+        <IconSwitch
+          active={showDrawer}
+          onActiveChange={setShowDrawer}
+          isDisabled={!hasDrawer}
+          ariaLabel="Show drawer"
+          activeIcon={<FaBars size={22} />}
+          inactiveIcon={<FaBarsStaggered size={22} />}
+        />
       </NavbarContent>
     </NextUINavbar>
   );

@@ -35,14 +35,13 @@ export default function Layout({
   children: React.ReactNode;
   drawer?: React.ReactNode;
 }) {
-  console.log(drawer);
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={clsx("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           <div className="relative flex h-screen w-screen">
-            <Navbar hasDrawer={true} />
+            <Navbar />
             <Main>
               <main className="container mx-auto max-w-7xl flex-grow px-6 pt-6">{children}</main>
               <footer className="flex w-full items-center justify-center py-3"></footer>
