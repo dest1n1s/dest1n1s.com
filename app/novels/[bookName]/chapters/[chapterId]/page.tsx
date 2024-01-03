@@ -1,6 +1,7 @@
 "use server";
 
-import { loadEpub, paginateEpub } from "@/lib/novel/epub";
+import { paginateEpub } from "@/lib/novel/epub";
+import { loadEpubCached } from "@/lib/novel/epub.server";
 
 export default async function Page({
   params: { bookName, chapterId },
@@ -8,7 +9,7 @@ export default async function Page({
   params: { bookName: string; chapterId: string };
 }) {
   const decodedBookName = decodeURIComponent(bookName);
-  const epub = await loadEpub(decodedBookName, { noImage: true }).catch(() => null);
+  const epub = await loadEpubCached(decodedBookName, { noImage: true }).catch(() => null);
   if (!epub) {
     return <div>Book not found</div>;
   }

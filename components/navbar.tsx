@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Input,
   Kbd,
@@ -5,7 +7,6 @@ import {
   NavbarBrand,
   NavbarContent,
   NavbarItem,
-  NavbarMenuToggle,
   Navbar as NextUINavbar,
   link as linkStyles,
 } from "@nextui-org/react";
@@ -14,10 +15,19 @@ import { siteConfig } from "@/config/site";
 import clsx from "clsx";
 import NextLink from "next/link";
 
+import { LayoutContext } from "@/app/providers";
 import { ThemeSwitch } from "@/components/theme-switch";
-import { FaGithub, FaSearchengin } from "react-icons/fa6";
+import { useContext } from "react";
+import { FaBars, FaBarsStaggered, FaGithub, FaSearchengin } from "react-icons/fa6";
+import { IconSwitch } from "./icon-switch";
 
-export const Navbar = () => {
+type NavbarProps = {
+  hasDrawer?: boolean;
+};
+
+export const Navbar = ({ hasDrawer = true }: NavbarProps) => {
+  const { showDrawer, setShowDrawer, showNavbar } = useContext(LayoutContext);
+
   const searchInput = (
     <Input
       aria-label="Search"
@@ -40,8 +50,15 @@ export const Navbar = () => {
   );
 
   return (
-    <NextUINavbar maxWidth="xl" position="sticky">
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
+    <NextUINavbar
+      maxWidth="xl"
+      className={clsx(
+        "fixed transition-all duration-300 ease-in-out w-auto",
+        showDrawer && "right-64 lg:right-80",
+        !showNavbar && "-top-16",
+      )}
+    >
+      <NavbarContent className="basis-1/5 sm:basis-full min-w-0 overflow-hidden" justify="start">
         <NavbarBrand as="li" className="max-w-fit gap-3">
           <NextLink className="flex items-center justify-start gap-1" href="/">
             <p className="font-bold text-inherit">Dest1n1</p>
@@ -73,6 +90,15 @@ export const Navbar = () => {
           <ThemeSwitch />
         </NavbarItem>
         <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
+        {hasDrawer && (
+          <IconSwitch
+            active={showDrawer}
+            onActiveChange={setShowDrawer}
+            ariaLabel="Show drawer"
+            activeIcon={<FaBars size={22} />}
+            inactiveIcon={<FaBarsStaggered size={22} />}
+          />
+        )}
       </NavbarContent>
 
       <NavbarContent className="basis-1 pl-4 sm:hidden" justify="end">
@@ -80,7 +106,15 @@ export const Navbar = () => {
           <FaGithub className="text-default-500" />
         </Link>
         <ThemeSwitch />
-        <NavbarMenuToggle />
+        {hasDrawer && (
+          <IconSwitch
+            active={showDrawer}
+            onActiveChange={setShowDrawer}
+            ariaLabel="Show drawer"
+            activeIcon={<FaBars size={22} />}
+            inactiveIcon={<FaBarsStaggered size={22} />}
+          />
+        )}
       </NavbarContent>
     </NextUINavbar>
   );

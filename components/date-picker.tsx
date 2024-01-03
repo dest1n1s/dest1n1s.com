@@ -159,7 +159,7 @@ export const DatePicker: FC<DatePickerProps> = props => {
       <ReactDatePicker
         selected={startDate}
         onChange={(date: Date) => setStartDate(date)}
-        customInput={<DatePickerInput />}
+        // customInput={<DatePickerInput />}
         popperClassName="!z-50"
         wrapperClassName="w-full"
       />
