@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "format": "prettier --write --ignore-path .gitignore ."
+    "format": "prettier --write --ignore-path .gitignore .",
+    "load-epub": "bun run scripts/load-epub.ts"
   },
   "dependencies": {
     "@nextui-org/react": "^2.2.9",

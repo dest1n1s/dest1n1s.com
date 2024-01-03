@@ -1,9 +1,11 @@
-import { callbackToPromise } from "@/lib/utils/common";
+import { callbackToPromise, noError } from "@/lib/utils/common";
 import { sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
-import { Container, ContainerSchema } from "@/types/container";
-import { Opf, OpfSchema } from "@/types/opf";
-import { Toc, TocSchema } from "@/types/toc";
-import { readFile } from "fs/promises";
+import { Container, ContainerSchema } from "@/types/epub/container";
+import { Epub } from "@/types/epub/epub";
+import { Opf, OpfSchema } from "@/types/epub/opf";
+import { Toc, TocSchema } from "@/types/epub/toc";
+import { R_OK } from "constants";
+import { access, readFile } from "fs/promises";
 import { JSDOM } from "jsdom";
 import JSZip, { loadAsync } from "jszip";
 import { inlineContent } from "juice";
@@ -180,7 +182,15 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
   };
 };
 
-const parseEpub = async (path: string) => {
+export const parseEpub = async (path: string): Promise<Epub> => {
+  if (!path.endsWith(".epub")) {
+    throw new Error("File must be an epub");
+  }
+
+  if (!(await noError(access(path, R_OK)))) {
+    throw new Error("File not found");
+  }
+
   const zip = await loadZip(path);
   const container: Container = ContainerSchema.parse(
     await resolveXmlFromZip(zip, join("META-INF", "container.xml")),
@@ -257,12 +267,7 @@ const parseEpub = async (path: string) => {
   };
 };
 
-const saveEpub = async ({
-  xhtmlList,
-  resourceList,
-  opf,
-  bookName,
-}: Awaited<ReturnType<typeof parseEpub>>) => {
+export const saveEpub = async ({ xhtmlList, resourceList, opf, bookName }: Epub) => {
   await Promise.all(
     xhtmlList.map(async xhtml => {
       await writeFileSafe(join("data", xhtml.src), xhtml.html);
@@ -277,10 +282,3 @@ const saveEpub = async ({
 
   await writeFileSafe(join("data", "novels", bookName, "opf.json"), JSON.stringify(opf, null, 2));
 };
-
-const main = async () => {
-  const epub = await parseEpub("./data/test2.epub");
-  await saveEpub(epub);
-};
-
-main();
