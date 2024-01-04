@@ -1,5 +1,6 @@
 import { parseEpub, saveEpub } from "@/lib/novel/epub";
 import { writeFile } from "fs/promises";
+import { revalidatePath } from "next/cache";
 import { fileSync } from "tmp";
 
 export async function POST(request: Request): Promise<Response> {
@@ -27,6 +28,6 @@ export async function POST(request: Request): Promise<Response> {
     }
     return new Response(error, { status: 400 });
   }
-
+  revalidatePath("/novels");
   return new Response();
 }

@@ -15,7 +15,7 @@ import { WithId } from "mongodb";
 import { join, sep } from "path";
 import pretty from "pretty";
 import xml2js from "xml2js";
-import { epubCollection, epubResourceCollection } from "../database";
+import { epubCollection, epubResourceCollection, withMongoSession } from "../database";
 
 const parseXml = async <T>(xml: string) => {
   const xmlParser = new xml2js.Parser({ explicitCharkey: true, emptyTag: () => ({}) });
@@ -312,20 +312,54 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
 export const saveEpub = async (epub: Epub) => {
   const resourceInsertResult = await epubResourceCollection.insertMany(epub.resources);
   const resourceIds = Object.values(resourceInsertResult.insertedIds);
-  const epubMongo = {
-    ...epub,
-    resources: resourceIds,
-  };
-  await epubCollection.insertOne(epubMongo);
+  await withMongoSession(async () => {
+    const epubMongo = {
+      ...epub,
+      resources: resourceIds,
+      order: (await epubCollection.countDocuments()) + 1,
+      timeCreated: new Date(),
+      timeUpdated: new Date(),
+    };
+    await epubCollection.insertOne(epubMongo);
+  });
 };
 
-export const loadInfos = async (): Promise<EpubInfo[]> => {
+export const loadInfos = async (searchText?: string): Promise<EpubInfo[]> => {
   // Read bookName, metadata, cover from mongodb
-  const infos = await epubCollection
-    .find()
-    .project<EpubInfo>({ bookName: 1, metadata: 1, cover: 1 })
-    .toArray();
-  return infos;
+  const projection = {
+    bookName: 1,
+    metadata: 1,
+    cover: 1,
+    order: 1,
+    timeCreated: 1,
+    timeUpdated: 1,
+  };
+
+  if (!searchText) {
+    return await epubCollection.find().project<EpubInfo>(projection).sort({ order: -1 }).toArray();
+  } else {
+    const pipeline = [
+      {
+        $match: {
+          $or: [
+            { bookName: { $regex: searchText, $options: "i" } },
+            { "metadata.title": { $regex: searchText, $options: "i" } },
+            { "metadata.creator": { $regex: searchText, $options: "i" } },
+          ],
+        },
+      },
+      {
+        $project: projection,
+      },
+      {
+        $sort: {
+          order: -1,
+        },
+      },
+    ];
+    const infos = await epubCollection.aggregate<EpubInfo>(pipeline).toArray();
+    return infos;
+  }
 };
 
 export const loadEpub = async (bookName: string): Promise<EpubNoContent | null> => {
@@ -426,6 +460,31 @@ export const paginateEpub = ({ resources, spine, navPoints }: EpubNoContent) => 
 };
 
 export const removeEpub = async (bookName: string) => {
-  // Remove from mongodb
-  await epubCollection.deleteOne({ bookName });
+  await withMongoSession(async () => {
+    const resources = (
+      await epubResourceCollection.find({ bookName }).project<WithId<{}>>({ _id: 1 }).toArray()
+    ).map(resource => resource._id);
+    await epubResourceCollection.deleteMany({ _id: { $in: resources } });
+    await epubCollection.deleteOne({ bookName });
+  });
+};
+
+export const swapOrder = async (bookName1: string, bookName2: string) => {
+  await withMongoSession(async () => {
+    const [order1, order2] = (
+      await Promise.all([
+        epubCollection.findOne({ bookName: bookName1 }),
+        epubCollection.findOne({ bookName: bookName2 }),
+      ])
+    ).map(epub => epub?.order);
+
+    if (!order1 || !order2) {
+      throw new Error("Book not found");
+    }
+
+    await Promise.all([
+      epubCollection.updateOne({ bookName: bookName1 }, { $set: { order: order2 } }),
+      epubCollection.updateOne({ bookName: bookName2 }, { $set: { order: order1 } }),
+    ]);
+  });
 };

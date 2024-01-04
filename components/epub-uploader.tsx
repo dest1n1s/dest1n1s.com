@@ -1,5 +1,6 @@
 "use client";
 
+import { handleNovelsRevalidate } from "@/app/novels/actions";
 import {
   Button,
   Modal,
@@ -39,7 +40,7 @@ export const EpubUploader = () => {
                   server="/api/novels"
                   name="files" /* sets the file input name, it's filepond by default */
                   labelIdle='<span class="tracking-wide">拖拽文件或<span class="filepond--label-action">点击</span>上传</span>'
-                  acceptedFileTypes={["application/epub"]}
+                  acceptedFileTypes={["application/epub+zip", "application/epub"]}
                 />
               </ModalBody>
               <ModalFooter>
@@ -49,7 +50,8 @@ export const EpubUploader = () => {
                 <Button
                   color="primary"
                   onPress={() => {
-                    window.location.reload();
+                    onClose();
+                    handleNovelsRevalidate();
                   }}
                 >
                   完成

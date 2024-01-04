@@ -3,6 +3,9 @@ import { Epub, EpubResource } from "./epub";
 
 export type EpubMongo = Omit<Epub, "resources"> & {
   resources: ObjectId[];
+  order: number;
+  timeCreated: Date;
+  timeUpdated: Date;
 };
 
 export type EpubResourceMongo = EpubResource;

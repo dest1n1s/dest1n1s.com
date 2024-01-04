@@ -27,7 +27,11 @@ export type Epub = {
   };
 };
 
-export type EpubInfo = Pick<Epub, "bookName" | "metadata" | "cover">;
+export type EpubInfo = Pick<Epub, "bookName" | "metadata" | "cover"> & {
+  order: number;
+  timeCreated: Date;
+  timeUpdated: Date;
+};
 
 export type SinglePageXhtml = {
   xhtmlList: EpubResource[];

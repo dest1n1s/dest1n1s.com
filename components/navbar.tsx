@@ -43,7 +43,7 @@ export const Navbar = () => {
         </Kbd>
       }
       labelPlacement="outside"
-      placeholder="摆着玩，搜不了"
+      placeholder="これ、いらないから"
       startContent={
         <FaSearchengin className="pointer-events-none flex-shrink-0 text-base text-default-400" />
       }
