@@ -18,7 +18,7 @@ export default async function Page({
   const chapters = paginateEpub(epub);
   const chapterIndex = parseInt(chapterId, 10) - 1;
   const chapter = chapters[chapterIndex];
-  const html = await chapter.xhtmlList.map(x => x.html).join("\n");
+  const html = await chapter.xhtmlList.map(x => x.content).join("\n");
 
   const hasPrev = chapterIndex > 0;
   const hasNext = chapterIndex < chapters.length - 1;

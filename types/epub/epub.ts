@@ -1,13 +1,3 @@
-export type XhtmlResource = {
-  src: string;
-  html: string;
-};
-
-export type ImageResource = {
-  src: string;
-  image: Buffer;
-};
-
 export type NavPoint = {
   src: string;
   id: string;
@@ -15,9 +5,36 @@ export type NavPoint = {
   title?: string;
 };
 
+type EpubResourceBase = {
+  id: string;
+  zipPath: string;
+  savePath: string;
+};
+
+export type XhtmlResource = EpubResourceBase & {
+  content: string;
+  mediaType: "application/xhtml+xml";
+};
+
+export type ImageResource = EpubResourceBase & {
+  content: Buffer;
+  mediaType: `image/${string}`;
+};
+
+export type NcxResource = EpubResourceBase & {
+  content: string;
+  mediaType: "application/x-dtbncx+xml";
+};
+
+export type FontResource = EpubResourceBase & {
+  content: string;
+  mediaType: `font/${string}` | `application/x-font-${string}` | `application/font-${string}`;
+};
+
+export type EpubResource = XhtmlResource | ImageResource | NcxResource;
+
 export type Epub = {
-  xhtmlList: XhtmlResource[];
-  resourceList: ImageResource[];
+  resources: EpubResource[];
   bookName: string;
   navPoints: NavPoint[];
   spine: string[];

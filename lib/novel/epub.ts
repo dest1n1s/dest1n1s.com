@@ -1,7 +1,7 @@
 import { callbackToPromise, noError } from "@/lib/utils/common";
 import { removeFolderSafe, sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
 import { Container, ContainerSchema } from "@/types/epub/container";
-import { Epub, EpubInfo, NavPoint } from "@/types/epub/epub";
+import { Epub, EpubInfo, EpubResource, NavPoint } from "@/types/epub/epub";
 import { Opf, OpfSchema } from "@/types/epub/opf";
 import { Toc, TocSchema } from "@/types/epub/toc";
 import { F_OK, R_OK } from "constants";
@@ -61,6 +61,35 @@ const getManifest = (opf: Opf) => {
   }));
 };
 
+const getResources = async (
+  zip: JSZip,
+  opf: Opf,
+  rootPath: string,
+  bookName: string,
+): Promise<EpubResource[]> => {
+  return (
+    await Promise.all(
+      getManifest(opf).map(
+        async item =>
+          ({
+            id: item.id,
+            zipPath: join(rootPath, item.href),
+            savePath: join("novels", bookName, "assets", item.href.split(sep).slice(-1)[0]),
+            content: item.mediaType.startsWith("image/")
+              ? await resolveImageFromZip(zip, join(rootPath, item.href))
+              : await resolvePathFromZip(zip, join(rootPath, item.href)),
+            mediaType: item.mediaType,
+          }) as EpubResource,
+      ),
+    )
+  ).filter(
+    resource =>
+      !resource.mediaType.startsWith("font/") &&
+      !resource.mediaType.startsWith("application/x-font-") &&
+      !resource.mediaType.startsWith("application/font-"),
+  );
+};
+
 const getTocPath = (opf: Opf) => {
   const tocId = opf.package.spine[0].$["toc"];
   const manifest = getManifest(opf);
@@ -80,142 +109,135 @@ const getNavPoints = (toc: Toc) => {
   }));
 };
 
-const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookName: string) => {
-  const xhtml = await resolvePathFromZip(zip, path);
-  const dom = new JSDOM(xhtml);
-  const document = dom.window.document;
-  const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-    .map(link => link.getAttribute("href"))
-    .flatMap(href => (href ? [decodeURIComponent(href)] : []))
-    .map(href => join(path.split(sep).slice(0, -1).join(sep), href));
-  const styles = await Promise.all(links.map(async link => await resolvePathFromZip(zip, link)));
+const computeZipPath = (filePath: string, href: string) => {
+  const dirPath = filePath.split(sep).slice(0, -1).join(sep);
+  return join(dirPath, href);
+};
 
-  const inlinedXhtml = inlineContent(xhtml, styles.join("\n"));
-  const inlinedDom = new JSDOM(inlinedXhtml);
-  const inlinedDocument = inlinedDom.window.document;
+const processXhtmlResources = (resources: EpubResource[]): EpubResource[] => {
+  return resources.map(resource => {
+    if (resource.mediaType === "application/xhtml+xml") {
+      const dom = new JSDOM(resource.content as string);
+      const document = dom.window.document;
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .map(link => link.getAttribute("href"))
+        .flatMap(href => (href ? [href] : []))
+        .map(href => computeZipPath(resource.zipPath, href));
+      const styles = resources.filter(resource => links.includes(resource.zipPath));
+      const inlinedContent = inlineContent(
+        resource.content as string,
+        styles.map(s => s.content as string).join("\n"),
+      );
 
-  const images = await Promise.all(
-    Array.from(inlinedDocument.querySelectorAll("img"))
-      .map(img => img.getAttribute("src"))
-      .concat(
-        Array.from(inlinedDocument.querySelectorAll("image")).map(img =>
-          img.getAttribute("xlink:href"),
-        ),
-      )
-      .flatMap(src => (src ? [decodeURIComponent(src)] : []))
-      .map(async src => ({
-        originalSrc: join(path.split(sep).slice(0, -1).join(sep), src),
-        src: join("/", "novels", bookName, "images", src.split(sep).slice(-1)[0]),
-        image: await resolveImageFromZip(zip, join(path.split(sep).slice(0, -1).join(sep), src)),
-      })),
-  );
+      const inlinedDom = new JSDOM(inlinedContent);
+      const inlinedDocument = inlinedDom.window.document;
 
-  // Replace image srcs
-  inlinedDocument.querySelectorAll("img").forEach(img => {
-    const src = img.getAttribute("src");
-    if (!src) {
-      return;
-    }
-    const image = images.find(
-      image =>
-        image.originalSrc === join(path.split(sep).slice(0, -1).join(sep), decodeURIComponent(src)),
-    );
-    if (!image) {
-      return;
-    }
-    img.setAttribute("src", image.src);
-  });
+      // Replace srcs and hrefs
 
-  inlinedDocument.querySelectorAll("image").forEach(img => {
-    const src = img.getAttribute("xlink:href");
-    if (!src) {
-      return;
-    }
-    const image = images.find(
-      image =>
-        image.originalSrc === join(path.split(sep).slice(0, -1).join(sep), decodeURIComponent(src)),
-    );
-    if (!image) {
-      return;
-    }
-    img.setAttribute("xlink:href", image.src);
-  });
+      const replaceList = [
+        {
+          tag: "img",
+          attribute: "src",
+        },
+        {
+          tag: "image",
+          attribute: "xlink:href",
+        },
+        {
+          tag: "a",
+          attribute: "href",
+        },
+        {
+          tag: "link",
+          attribute: "href",
+        },
+      ];
 
-  // Remove reserved styles
-  const reservedStyles = [
-    "width",
-    "height",
-    "margin",
-    "margin-top",
-    "margin-bottom",
-    "margin-left",
-    "margin-right",
-    "padding",
-    "padding-top",
-    "padding-bottom",
-    "padding-left",
-    "padding-right",
-    "line-height",
-    "font-size",
-    "font-family",
-    "font-style",
-    "text-indent",
-    "display",
-    "duokan-text-indent",
-    "border",
-  ];
-  inlinedDocument.querySelectorAll("*").forEach(element => {
-    if (element.hasAttribute("style")) {
-      const style = element.getAttribute("style");
-      if (!style) {
-        return;
-      }
-      const newStyle = style
-        .split(";")
-        .filter(style => {
-          const [key] = style.split(":");
-          return !reservedStyles.includes(key.trim());
-        })
-        .join(";")
-        .trim();
-      if (newStyle === "") {
-        element.removeAttribute("style");
-      } else {
-        element.setAttribute("style", newStyle);
-      }
-    }
-    if (element.hasAttribute("class")) {
-      element.removeAttribute("class");
-    }
-    // Downgrade heading by 1 level
-    if (element.tagName.startsWith("H")) {
-      const level = parseInt(element.tagName[1]);
-      if (level >= 1 && level <= 5) {
-        const parent = element.parentElement;
-        if (parent) {
-          const newElement = document.createElement(`h${level + 1}`);
-          newElement.innerHTML = element.innerHTML;
-          parent.replaceChild(newElement, element);
+      resources.forEach(r => {
+        replaceList.forEach(replace => {
+          inlinedDocument.querySelectorAll(replace.tag).forEach(element => {
+            const attribute = element.getAttribute(replace.attribute);
+            if (attribute && computeZipPath(resource.zipPath, attribute) === r.zipPath) {
+              element.setAttribute(replace.attribute, "/" + r.savePath);
+            }
+          });
+        });
+      });
+
+      // Remove reserved styles
+      const reservedStyles = [
+        "width",
+        "height",
+        "margin",
+        "margin-top",
+        "margin-bottom",
+        "margin-left",
+        "margin-right",
+        "padding",
+        "padding-top",
+        "padding-bottom",
+        "padding-left",
+        "padding-right",
+        "line-height",
+        "font-size",
+        "font-family",
+        "font-style",
+        "text-indent",
+        "display",
+        "duokan-text-indent",
+        "border",
+      ];
+      inlinedDocument.querySelectorAll("*").forEach(element => {
+        if (element.hasAttribute("style")) {
+          const style = element.getAttribute("style");
+          if (!style) {
+            return;
+          }
+          const newStyle = style
+            .split(";")
+            .filter(style => {
+              const [key] = style.split(":");
+              return !reservedStyles.includes(key.trim());
+            })
+            .join(";")
+            .trim();
+          if (newStyle === "") {
+            element.removeAttribute("style");
+          } else {
+            element.setAttribute("style", newStyle);
+          }
         }
+        if (element.hasAttribute("class")) {
+          element.removeAttribute("class");
+        }
+        // Downgrade heading by 1 level
+        if (element.tagName.startsWith("H")) {
+          const level = parseInt(element.tagName[1]);
+          if (level == 1) {
+            const parent = element.parentElement;
+            if (parent) {
+              const newElement = document.createElement(`h${level + 1}`);
+              newElement.innerHTML = element.innerHTML;
+              newElement.attributes.setNamedItem(element.attributes.getNamedItem("style")!);
+              parent.replaceChild(newElement, element);
+            }
+          }
+        }
+      });
+
+      while (
+        inlinedDocument.body.children.length === 1 &&
+        inlinedDocument.body.children[0].tagName === "DIV"
+      ) {
+        inlinedDocument.body.innerHTML = inlinedDocument.body.children[0].innerHTML;
       }
+
+      const newHtml = pretty(`<div>${inlinedDocument.body.innerHTML}</div>`);
+
+      return { ...resource, content: newHtml };
     }
+    return resource;
   });
-
-  while (
-    inlinedDocument.body.children.length === 1 &&
-    inlinedDocument.body.children[0].tagName === "DIV"
-  ) {
-    inlinedDocument.body.innerHTML = inlinedDocument.body.children[0].innerHTML;
-  }
-
-  const newHtml = pretty(`<div>${inlinedDocument.body.innerHTML}</div>`);
-  return {
-    html: {
-      src: join("novels", bookName, "html", path.split(sep).slice(-1)[0]),
-      html: newHtml,
-    },
-    images,
-  };
 };
 
 export const parseEpub = async (path: PathLike): Promise<Epub> => {
@@ -238,69 +260,38 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
   const toc: Toc = TocSchema.parse(await resolveXmlFromZip(zip, join(rootPath, tocPath)));
   const navPoints = getNavPoints(toc);
   const spine = getSpine(opf);
-  const manifest = getManifest(opf);
   const metadata = opf.package.metadata[0];
   const bookName = sanitizeFilename(metadata["dc:title"][0]["_"]);
-  const xhtmlAndResourcesList = await Promise.all(
-    spine.map(async id => {
-      const item = manifest.find(item => item.id === id);
-      if (!item) {
-        throw new Error(`Item not found: ${id}`);
-      }
-      const xhtmlAndResources = await resolveXhtmlAndResourcesFromZip(
-        zip,
-        join(rootPath, item.href),
-        bookName,
-      );
-      return {
-        html: { ...xhtmlAndResources.html, originalSrc: join(rootPath, item.href) },
-        images: xhtmlAndResources.images,
-      };
-    }),
-  );
+  const resources = await getResources(zip, opf, rootPath, bookName);
 
-  const { xhtmlList, resourceList } = xhtmlAndResourcesList.reduce<{
-    xhtmlList: { src: string; html: string; originalSrc: string }[];
-    resourceList: { src: string; image: Buffer; originalSrc: string }[];
-  }>(
-    ({ xhtmlList, resourceList }, xhtmlAndResources) => {
-      return {
-        xhtmlList: xhtmlList.concat(xhtmlAndResources.html),
-        resourceList: resourceList
-          .concat(xhtmlAndResources.images)
-          .filter((image, index, self) => self.findIndex(i => i.src === image.src) === index),
-      };
-    },
-    { xhtmlList: [], resourceList: [] },
-  );
-
-  const convertedNavPoints = navPoints
+  const processedResources = processXhtmlResources(resources);
+  const processedNavPoints = navPoints
     .map(navPoint => {
-      const src = xhtmlList.find(xhtml => xhtml.originalSrc === join(rootPath, navPoint.src))?.src;
+      const src = processedResources.find(
+        resource => resource.zipPath === join(rootPath, navPoint.src),
+      )?.savePath;
       if (!src) {
-        throw new Error(`Src not found: ${navPoint.src}`);
+        throw new Error(`Resource not found: ${navPoint.src}`);
       }
       return { ...navPoint, src };
     })
     .sort((a, b) => parseInt(a.playOrder) - parseInt(b.playOrder));
+  const processedSpine = spine.map(id => {
+    const src = processedResources.find(resource => resource.id === id)?.savePath;
+    if (!src) {
+      throw new Error(`Src not found: ${id}`);
+    }
+    return src;
+  });
 
   const coverId = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
-  const coverManifestSrc = coverId && manifest.find(item => item.id === coverId)?.href;
-  const coverOriginalSrc = coverManifestSrc && join(rootPath, coverManifestSrc);
-  const coverImage = coverOriginalSrc && {
-    originalSrc: coverOriginalSrc,
-    src: join("/", "novels", bookName, "images", coverOriginalSrc.split(sep).slice(-1)[0]),
-    image: await resolveImageFromZip(zip, coverOriginalSrc),
-  };
+  const coverPath = coverId && processedResources.find(item => item.id === coverId)?.savePath;
 
   return {
-    xhtmlList,
-    resourceList: (coverImage ? [coverImage, ...resourceList] : resourceList).filter(
-      (resource, index, self) => self.findIndex(r => r.src === resource.src) === index,
-    ),
-    navPoints: convertedNavPoints,
-    spine: xhtmlList.map(xhtml => xhtml.src),
-    cover: coverImage.src,
+    resources: processedResources,
+    navPoints: processedNavPoints,
+    spine: processedSpine,
+    cover: coverPath,
     metadata: {
       title: metadata["dc:title"][0]._,
       language: metadata["dc:language"]?.[0]?._,
@@ -311,20 +302,25 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
   };
 };
 
-export const saveEpub = async ({ xhtmlList, resourceList, bookName, ...opf }: Epub) => {
+export const saveEpub = async ({ resources, bookName, ...opf }: Epub) => {
   await Promise.all(
-    xhtmlList.map(async xhtml => {
-      await writeFileSafe(join("data", xhtml.src), xhtml.html);
+    resources.map(async resource => {
+      await writeFileSafe(join("data", resource.savePath), resource.content);
     }),
   );
 
-  await Promise.all(
-    resourceList.map(async resource => {
-      await writeFileSafe(join("data", resource.src), resource.image);
-    }),
-  );
+  const opfWithResources = {
+    resources: resources.map(resource => ({
+      ...resource,
+      content: undefined,
+    })),
+    ...opf,
+  };
 
-  await writeFileSafe(join("data", "novels", bookName, "opf.json"), JSON.stringify(opf, null, 2));
+  await writeFileSafe(
+    join("data", "novels", bookName, "opf.json"),
+    JSON.stringify(opfWithResources, null, 2),
+  );
 
   const infos = (await loadInfos()).filter(info => info.bookName !== bookName);
   const newInfos = [...infos, { bookName, metadata: opf.metadata, cover: opf.cover }];
@@ -340,36 +336,46 @@ export const loadInfos = async (): Promise<EpubInfo[]> => {
 
 export const loadEpub = async (
   bookName: string,
-  { noImage }: { noImage: boolean } = { noImage: false },
+  { noImage = true }: { noImage: boolean },
 ): Promise<Epub> => {
-  const opf = JSON.parse(
+  const opfWithResources = JSON.parse(
     await readFile(join("data", "novels", bookName, "opf.json"), {
       encoding: "utf-8",
     }),
   );
-  const xhtmlList = await Promise.all(
-    opf.spine.map(async (src: string) => {
-      const html = await readFile(join("data", src), { encoding: "utf-8" });
-      return { src, html };
-    }),
-  );
-  const resourceList = noImage
-    ? []
-    : await Promise.all(
-        opf.resourceList.map(async (src: string) => {
-          const image = await readFile(join("data", src));
-          return { src, image };
-        }),
-      );
-  return { ...opf, xhtmlList, resourceList };
+  const resourcesWithNoContent: Omit<EpubResource, "content">[] = opfWithResources.resources;
+  const resources = (
+    await Promise.all(
+      resourcesWithNoContent.map(async (resource: Omit<EpubResource, "content">) => {
+        if (noImage && resource.mediaType.startsWith("image/")) {
+          return [];
+        }
+        const content = await readFile(join("data", resource.savePath), {
+          encoding: resource.mediaType.startsWith("image/") ? null : "utf-8",
+        });
+        return [
+          {
+            ...resource,
+            content,
+          },
+        ];
+      }),
+    )
+  ).flat();
+
+  return { ...opfWithResources, resources, bookName };
 };
 
-export const paginateEpub = ({ xhtmlList, navPoints }: Epub) => {
+export const paginateEpub = ({ resources, spine, navPoints }: Epub) => {
+  const xhtmlResources = spine
+    .map(path => resources.find(resource => resource.savePath === path))
+    .flatMap(resource => (resource?.mediaType === "application/xhtml+xml" ? [resource] : []));
+
   // Insert a pseudo navPoint at the beginning
   const pseudoNavPoint: NavPoint = {
     id: "pseudo",
     playOrder: "-1",
-    src: xhtmlList[0].src,
+    src: xhtmlResources[0].savePath,
   };
 
   const pseudoNavPoints = [pseudoNavPoint, ...navPoints];
@@ -378,13 +384,13 @@ export const paginateEpub = ({ xhtmlList, navPoints }: Epub) => {
   const chapters = pseudoNavPoints
     .map((navPoint, index) => {
       const nextNavPoint = pseudoNavPoints[index + 1];
-      const startIndex = xhtmlList.findIndex(xhtml => xhtml.src === navPoint.src);
+      const startIndex = xhtmlResources.findIndex(xhtml => xhtml.savePath === navPoint.src);
       const endIndex = nextNavPoint
-        ? xhtmlList.findIndex(xhtml => xhtml.src === nextNavPoint.src)
-        : xhtmlList.length;
+        ? xhtmlResources.findIndex(xhtml => xhtml.savePath === nextNavPoint.src)
+        : xhtmlResources.length;
       return {
         navPoint,
-        xhtmlList: xhtmlList.slice(startIndex, endIndex),
+        xhtmlList: xhtmlResources.slice(startIndex, endIndex),
       };
     })
     .filter(chapter => chapter.xhtmlList.length > 0);

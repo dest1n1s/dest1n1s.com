@@ -23,19 +23,21 @@ export default async function Page() {
             key={info.bookName}
             className="flex items-center justify-center gap-8 py-4 border-b-1 border-gray-300 border-opacity-30 w-full"
           >
-            <Image
-              src={info.cover || fallbackCover}
-              alt={info.metadata.title}
-              width={50}
-              height={75}
-              fallbackSrc={fallbackCover}
-              className="rounded-md"
-            />
-            <div className="flex flex-col gap-2 grow">
+            <div className="shrink-0">
+              <Image
+                src={info.cover || fallbackCover}
+                alt={info.metadata.title}
+                width={50}
+                height={75}
+                fallbackSrc={fallbackCover}
+                className="rounded-md"
+              />
+            </div>
+            <div className="flex flex-col gap-2 grow shrink">
               <h3 className="text-xl font-bold">{info.metadata.title}</h3>
               <p className="text-gray-700">{info.metadata.creator}</p>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 shrink-0">
               <Link href={`/novels/${info.bookName}/chapters/1`}>
                 <Button size="sm" className="text-sm self-end" color="primary" radius="lg">
                   阅读
