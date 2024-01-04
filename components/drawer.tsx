@@ -2,25 +2,14 @@
 
 import { LayoutContext } from "@/app/providers";
 import clsx from "clsx";
-import { useRouter } from "next/navigation";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect } from "react";
 
 type DrawerProps = {
   children?: React.ReactNode;
 };
 
 export const Drawer: React.FC<DrawerProps> = ({ children }) => {
-  const { showDrawer, setShowDrawer } = useContext(LayoutContext);
-  const router = useRouter();
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-  useEffect(() => {
-    if (isMounted && showDrawer) {
-      setShowDrawer(false);
-    }
-  }, [router, isMounted, showDrawer, setShowDrawer]);
+  const { showDrawer } = useContext(LayoutContext);
   return (
     <div
       className={clsx(
