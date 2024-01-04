@@ -1,6 +1,4 @@
-import { noError } from "@/lib/utils/common";
-import { R_OK } from "constants";
-import { access, readFile } from "fs/promises";
+import { retrieveResourceWithBookNameAndSavePath } from "@/lib/novel/epub";
 import { join } from "path";
 
 export const revalidate = "force-cache";
@@ -9,39 +7,23 @@ export async function GET(
   request: Request,
   { params: { bookName, assetName } }: { params: { bookName: string; assetName: string } },
 ) {
-  const path = join("data", "novels", bookName, "assets", assetName);
-  // Check if the image exists
-  if (!(await noError(access(path, R_OK)))) {
+  const path = join("novels", bookName, "assets", assetName);
+
+  const resource = await retrieveResourceWithBookNameAndSavePath(bookName, path);
+
+  if (!resource) {
     return new Response("Asset not found", { status: 404 });
   }
 
-  const ext = assetName.split(".").slice(-1)[0];
-  const encoding = ext === "xhtml" ? "utf-8" : null;
-  const contentType = (() => {
-    switch (ext) {
-      case "xhtml":
-      case "html":
-        return "text/html";
-      case "css":
-        return "text/css";
-      case "png":
-        return "image/png";
-      case "jpg":
-      case "jpeg":
-        return "image/jpeg";
-      case "svg":
-        return "image/svg+xml";
-      default:
-        return "text/plain";
-    }
-  })();
+  const content = resource.mediaType.startsWith("image/")
+    ? Buffer.from(resource.content, "base64")
+    : resource.content;
 
-  // Read the file and return it
-  const file = await readFile(join("data", "novels", bookName, "assets", assetName), { encoding });
-
-  return new Response(file, {
+  const response = new Response(content, {
     headers: {
-      "content-type": contentType,
+      "content-type": resource.mediaType,
     },
   });
+
+  return response;
 }

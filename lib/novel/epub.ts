@@ -1,18 +1,21 @@
 import { callbackToPromise, noError } from "@/lib/utils/common";
-import { removeFolderSafe, sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
+import { sanitizeFilename } from "@/lib/utils/file";
 import { Container, ContainerSchema } from "@/types/epub/container";
 import { Epub, EpubInfo, EpubResource, NavPoint } from "@/types/epub/epub";
+import { EpubNoContent, EpubResourceNoContent } from "@/types/epub/epub.mongo";
 import { Opf, OpfSchema } from "@/types/epub/opf";
 import { Toc, TocSchema } from "@/types/epub/toc";
-import { F_OK, R_OK } from "constants";
+import { R_OK } from "constants";
 import { PathLike } from "fs";
 import { access, readFile } from "fs/promises";
 import { JSDOM } from "jsdom";
 import JSZip, { loadAsync } from "jszip";
 import { inlineContent } from "juice";
+import { WithId } from "mongodb";
 import { join, sep } from "path";
 import pretty from "pretty";
 import xml2js from "xml2js";
+import { epubCollection, epubResourceCollection } from "../database";
 
 const parseXml = async <T>(xml: string) => {
   const xmlParser = new xml2js.Parser({ explicitCharkey: true, emptyTag: () => ({}) });
@@ -37,7 +40,7 @@ const resolveImageFromZip = async (zip: JSZip, path: string) => {
   if (!file) {
     throw new Error(`File not found: ${path}`);
   }
-  return await file.async("nodebuffer");
+  return (await file.async("nodebuffer")).toString("base64");
 };
 
 const resolveXmlFromZip = async (zip: JSZip, path: string) => {
@@ -306,71 +309,91 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
   };
 };
 
-export const saveEpub = async ({ resources, bookName, ...opf }: Epub) => {
-  await Promise.all(
-    resources.map(async resource => {
-      await writeFileSafe(join("data", resource.savePath), resource.content);
-    }),
-  );
-
-  const opfWithResources = {
-    resources: resources.map(resource => ({
-      ...resource,
-      content: undefined,
-    })),
-    ...opf,
+export const saveEpub = async (epub: Epub) => {
+  const resourceInsertResult = await epubResourceCollection.insertMany(epub.resources);
+  const resourceIds = Object.values(resourceInsertResult.insertedIds);
+  const epubMongo = {
+    ...epub,
+    resources: resourceIds,
   };
-
-  await writeFileSafe(
-    join("data", "novels", bookName, "opf.json"),
-    JSON.stringify(opfWithResources, null, 2),
-  );
-
-  const infos = (await loadInfos()).filter(info => info.bookName !== bookName);
-  const newInfos = [...infos, { bookName, metadata: opf.metadata, cover: opf.cover }];
-  await writeFileSafe(join("data", "novels", "infos.json"), JSON.stringify(newInfos, null, 2));
+  await epubCollection.insertOne(epubMongo);
 };
 
 export const loadInfos = async (): Promise<EpubInfo[]> => {
-  const infosPath = join("data", "novels", "infos.json");
-  return (await noError(access(infosPath, F_OK)))
-    ? JSON.parse(await readFile(infosPath, { encoding: "utf-8" }))
-    : [];
+  // Read bookName, metadata, cover from mongodb
+  const infos = await epubCollection
+    .find()
+    .project<EpubInfo>({ bookName: 1, metadata: 1, cover: 1 })
+    .toArray();
+  return infos;
 };
 
-export const loadEpub = async (
+export const loadEpub = async (bookName: string): Promise<EpubNoContent | null> => {
+  // Read from mongodb, without content of resources
+  const pipeline = [
+    {
+      $match: { bookName: bookName },
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "resources",
+        foreignField: "_id",
+        as: "resources",
+      },
+    },
+    {
+      $project: {
+        "resources.content": 0, // Exclude content field
+      },
+    },
+  ];
+  const epub = await epubCollection.aggregate<EpubNoContent>(pipeline).next();
+  return epub;
+};
+
+export const retrieveDetailedResource = async (
+  ...resources: WithId<EpubResourceNoContent>[]
+): Promise<EpubResource[]> => {
+  const resourceIds = resources.map(resource => resource._id);
+  const resourceDetails = await epubResourceCollection
+    .find({ _id: { $in: resourceIds } })
+    .toArray();
+  return resourceDetails;
+};
+
+export const retrieveResourceWithBookNameAndSavePath = async (
   bookName: string,
-  { noImage = true }: { noImage: boolean },
-): Promise<Epub> => {
-  const opfWithResources = JSON.parse(
-    await readFile(join("data", "novels", bookName, "opf.json"), {
-      encoding: "utf-8",
-    }),
-  );
-  const resourcesWithNoContent: Omit<EpubResource, "content">[] = opfWithResources.resources;
-  const resources = (
-    await Promise.all(
-      resourcesWithNoContent.map(async (resource: Omit<EpubResource, "content">) => {
-        if (noImage && resource.mediaType.startsWith("image/")) {
-          return [];
-        }
-        const content = await readFile(join("data", resource.savePath), {
-          encoding: resource.mediaType.startsWith("image/") ? null : "utf-8",
-        });
-        return [
-          {
-            ...resource,
-            content,
-          },
-        ];
-      }),
-    )
-  ).flat();
+  savePath: string,
+): Promise<EpubResource | null> => {
+  const pipeline = [
+    {
+      $match: { bookName: bookName },
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "resources",
+        foreignField: "_id",
+        as: "resourceDetails",
+      },
+    },
+    {
+      $unwind: "$resourceDetails",
+    },
+    {
+      $match: { "resourceDetails.savePath": savePath },
+    },
+    {
+      $replaceRoot: { newRoot: "$resourceDetails" },
+    },
+  ];
 
-  return { ...opfWithResources, resources, bookName };
+  const result = await epubCollection.aggregate<EpubResource>(pipeline).next();
+  return result;
 };
 
-export const paginateEpub = ({ resources, spine, navPoints }: Epub) => {
+export const paginateEpub = ({ resources, spine, navPoints }: EpubNoContent) => {
   const xhtmlResources = spine
     .map(path => resources.find(resource => resource.savePath === path))
     .flatMap(resource => (resource?.mediaType === "application/xhtml+xml" ? [resource] : []));
@@ -403,9 +426,6 @@ export const paginateEpub = ({ resources, spine, navPoints }: Epub) => {
 };
 
 export const removeEpub = async (bookName: string) => {
-  const infos = await loadInfos();
-  const newInfos = infos.filter(info => info.bookName !== bookName);
-  await writeFileSafe(join("data", "novels", "infos.json"), JSON.stringify(newInfos, null, 2));
-
-  await removeFolderSafe(join("data", "novels", bookName));
+  // Remove from mongodb
+  await epubCollection.deleteOne({ bookName });
 };

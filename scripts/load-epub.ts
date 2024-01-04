@@ -1,3 +1,4 @@
+import { closeConnection } from "@/lib/database";
 import { parseEpub, saveEpub } from "@/lib/novel/epub";
 import assert from "assert";
 
@@ -10,6 +11,7 @@ const main = async () => {
   const path = parsePathToEpub();
   const epub = await parseEpub(path);
   await saveEpub(epub);
+  await closeConnection();
 };
 
 main();
