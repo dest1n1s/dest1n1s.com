@@ -30,6 +30,8 @@ export type Epub = {
   };
 };
 
+export type EpubInfo = Pick<Epub, "bookName" | "metadata" | "cover">;
+
 export type SinglePageXhtml = {
   xhtmlList: XhtmlResource[];
   navPoint: NavPoint;

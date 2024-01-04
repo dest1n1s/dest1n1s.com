@@ -22,7 +22,7 @@ export default async function Drawer({
 
   // Return the toc of the book
   return (
-    <div className="flex flex-col items-center justify-center gap-4 p-4">
+    <div className="flex flex-col items-center justify-center gap-4 py-4 px-4 lg:px-8 w-full">
       <div className="w-full flex flex-col gap-1">
         <h3 className="text-xl text-center font-bold">{epub.metadata.title}</h3>
         <p className="text-gray-700">{epub.metadata.creator}</p>
@@ -33,7 +33,7 @@ export default async function Drawer({
           <div
             key={index}
             className={clsx(
-              "border-b border-gray-400 py-2 border-opacity-30",
+              "border-b border-gray-400 py-2 border-opacity-30 w-full",
               chapterIndex === index && "text-primary",
             )}
           >

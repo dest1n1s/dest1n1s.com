@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, rm, writeFile } from "fs/promises";
 import { sep } from "path";
 import { Stream } from "stream";
 
@@ -26,4 +26,9 @@ export const writeFileSafe = async (
   const dir = path.split(sep).slice(0, -1).join(sep);
   await mkdir(dir, { recursive: true });
   await writeFile(path, content);
+};
+
+export const removeFolderSafe = async (path: string) => {
+  await mkdir(path, { recursive: true });
+  await rm(path, { recursive: true });
 };

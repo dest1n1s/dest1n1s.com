@@ -53,9 +53,8 @@ export const Navbar = () => {
 
   return (
     <NextUINavbar
-      maxWidth="xl"
       className={clsx(
-        "fixed transition-all duration-300 ease-in-out w-auto",
+        "fixed transition-all duration-300 ease-in-out w-auto max-w-[100vw]",
         showDrawer && "right-64 lg:right-80",
         !showNavbar && "-top-16",
       )}

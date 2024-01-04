@@ -1,10 +1,11 @@
 import { callbackToPromise, noError } from "@/lib/utils/common";
-import { sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
+import { removeFolderSafe, sanitizeFilename, writeFileSafe } from "@/lib/utils/file";
 import { Container, ContainerSchema } from "@/types/epub/container";
-import { Epub, NavPoint } from "@/types/epub/epub";
+import { Epub, EpubInfo, NavPoint } from "@/types/epub/epub";
 import { Opf, OpfSchema } from "@/types/epub/opf";
 import { Toc, TocSchema } from "@/types/epub/toc";
-import { R_OK } from "constants";
+import { F_OK, R_OK } from "constants";
+import { PathLike } from "fs";
 import { access, readFile } from "fs/promises";
 import { JSDOM } from "jsdom";
 import JSZip, { loadAsync } from "jszip";
@@ -18,7 +19,7 @@ const parseXml = async <T>(xml: string) => {
   return await callbackToPromise<T>(callback => xmlParser.parseString(xml, callback));
 };
 
-const loadZip = async (path: string) => {
+const loadZip = async (path: PathLike) => {
   const zipContent = await readFile(path);
   return await loadAsync(zipContent);
 };
@@ -104,9 +105,17 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
       .flatMap(src => (src ? [decodeURIComponent(src)] : []))
       .map(async src => ({
         originalSrc: join(path.split(sep).slice(0, -1).join(sep), src),
-        src: join("/", "novels", bookName, "images", src.split(sep).slice(2).join("_")),
+        src: join("/", "novels", bookName, "images", src.split(sep).slice(-1)[0]),
         image: await resolveImageFromZip(zip, join(path.split(sep).slice(0, -1).join(sep), src)),
       })),
+  );
+
+  console.log(
+    JSON.stringify(
+      images.map(image => image.src),
+      null,
+      2,
+    ),
   );
 
   // Replace image srcs
@@ -210,15 +219,15 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
   const newHtml = pretty(`<div>${inlinedDocument.body.innerHTML}</div>`);
   return {
     html: {
-      src: join("novels", bookName, "html", path.split(sep).slice(2).join("_")),
+      src: join("novels", bookName, "html", path.split(sep).slice(-1)[0]),
       html: newHtml,
     },
     images,
   };
 };
 
-export const parseEpub = async (path: string): Promise<Epub> => {
-  if (!path.endsWith(".epub")) {
+export const parseEpub = async (path: PathLike): Promise<Epub> => {
+  if (typeof path === "string" && !path.endsWith(".epub") && !path.startsWith("/tmp")) {
     throw new Error("File must be an epub");
   }
 
@@ -320,6 +329,17 @@ export const saveEpub = async ({ xhtmlList, resourceList, bookName, ...opf }: Ep
   );
 
   await writeFileSafe(join("data", "novels", bookName, "opf.json"), JSON.stringify(opf, null, 2));
+
+  const infos = (await loadInfos()).filter(info => info.bookName !== bookName);
+  const newInfos = [...infos, { bookName, metadata: opf.metadata, cover: opf.cover }];
+  await writeFileSafe(join("data", "novels", "infos.json"), JSON.stringify(newInfos, null, 2));
+};
+
+export const loadInfos = async (): Promise<EpubInfo[]> => {
+  const infosPath = join("data", "novels", "infos.json");
+  return (await noError(access(infosPath, F_OK)))
+    ? JSON.parse(await readFile(infosPath, { encoding: "utf-8" }))
+    : [];
 };
 
 export const loadEpub = async (
@@ -374,4 +394,12 @@ export const paginateEpub = ({ xhtmlList, navPoints }: Epub) => {
     .filter(chapter => chapter.xhtmlList.length > 0);
 
   return chapters;
+};
+
+export const removeEpub = async (bookName: string) => {
+  const infos = await loadInfos();
+  const newInfos = infos.filter(info => info.bookName !== bookName);
+  await writeFileSafe(join("data", "novels", "infos.json"), JSON.stringify(newInfos, null, 2));
+
+  await removeFolderSafe(join("data", "novels", bookName));
 };
