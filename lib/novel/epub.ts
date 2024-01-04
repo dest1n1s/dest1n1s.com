@@ -110,14 +110,6 @@ const resolveXhtmlAndResourcesFromZip = async (zip: JSZip, path: string, bookNam
       })),
   );
 
-  console.log(
-    JSON.stringify(
-      images.map(image => image.src),
-      null,
-      2,
-    ),
-  );
-
   // Replace image srcs
   inlinedDocument.querySelectorAll("img").forEach(img => {
     const src = img.getAttribute("src");
@@ -266,6 +258,7 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
       };
     }),
   );
+
   const { xhtmlList, resourceList } = xhtmlAndResourcesList.reduce<{
     xhtmlList: { src: string; html: string; originalSrc: string }[];
     resourceList: { src: string; image: Buffer; originalSrc: string }[];
@@ -292,19 +285,22 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
     .sort((a, b) => parseInt(a.playOrder) - parseInt(b.playOrder));
 
   const coverId = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
-  const coverOriginalSrc = coverId ? manifest.find(item => item.id === coverId)?.href : undefined;
-  const coverSrc = coverOriginalSrc
-    ? resourceList.find(
-        resource => resource.originalSrc === join(rootPath, decodeURIComponent(coverOriginalSrc)),
-      )?.src
-    : undefined;
+  const coverManifestSrc = coverId && manifest.find(item => item.id === coverId)?.href;
+  const coverOriginalSrc = coverManifestSrc && join(rootPath, coverManifestSrc);
+  const coverImage = coverOriginalSrc && {
+    originalSrc: coverOriginalSrc,
+    src: join("/", "novels", bookName, "images", coverOriginalSrc.split(sep).slice(-1)[0]),
+    image: await resolveImageFromZip(zip, coverOriginalSrc),
+  };
 
   return {
     xhtmlList,
-    resourceList,
+    resourceList: (coverImage ? [coverImage, ...resourceList] : resourceList).filter(
+      (resource, index, self) => self.findIndex(r => r.src === resource.src) === index,
+    ),
     navPoints: convertedNavPoints,
     spine: xhtmlList.map(xhtml => xhtml.src),
-    cover: coverSrc,
+    cover: coverImage.src,
     metadata: {
       title: metadata["dc:title"][0]._,
       language: metadata["dc:language"]?.[0]?._,
