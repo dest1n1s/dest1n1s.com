@@ -218,7 +218,11 @@ const processXhtmlResources = (resources: EpubResource[]): EpubResource[] => {
             if (parent) {
               const newElement = document.createElement(`h${level + 1}`);
               newElement.innerHTML = element.innerHTML;
-              newElement.attributes.setNamedItem(element.attributes.getNamedItem("style")!);
+              if (element.attributes.length > 0) {
+                Array.from(element.attributes).forEach(attr => {
+                  newElement.setAttribute(attr.name, attr.value);
+                });
+              }
               parent.replaceChild(newElement, element);
             }
           }
