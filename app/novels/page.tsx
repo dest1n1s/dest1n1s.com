@@ -1,9 +1,9 @@
-"use server";
-
 import { EpubUploader } from "@/components/epub-uploader";
 import { RemoveNovelButton } from "@/components/remove-novel-button";
 import { loadInfosCached } from "@/lib/novel/epub.server";
 import { Button, Image, Link } from "@nextui-org/react";
+
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const infos = await loadInfosCached();

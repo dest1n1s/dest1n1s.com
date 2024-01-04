@@ -3,6 +3,8 @@ import { R_OK } from "constants";
 import { access, readFile } from "fs/promises";
 import { join } from "path";
 
+export const revalidate = "force-cache";
+
 export async function GET(
   request: Request,
   { params: { bookName, imageName } }: { params: { bookName: string; imageName: string } },
