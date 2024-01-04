@@ -3,11 +3,12 @@
 import { EpubUploader } from "@/components/epub-uploader";
 import { RemoveNovelButton } from "@/components/remove-novel-button";
 import { loadInfosCached } from "@/lib/novel/epub.server";
-import { Button, Link } from "@nextui-org/react";
-import Image from "next/image";
+import { Button, Image, Link } from "@nextui-org/react";
 
 export default async function Page() {
   const infos = await loadInfosCached();
+
+  const fallbackCover = "https://via.placeholder.com/200x300";
 
   return (
     <section className="flex flex-col items-center justify-center gap-12 py-8 md:py-10">
@@ -23,10 +24,11 @@ export default async function Page() {
             className="flex items-center justify-center gap-8 py-4 border-b-1 border-gray-300 border-opacity-30 w-full"
           >
             <Image
-              src={info.cover!}
+              src={info.cover || fallbackCover}
               alt={info.metadata.title}
               width={50}
               height={75}
+              fallbackSrc={fallbackCover}
               className="rounded-md"
             />
             <div className="flex flex-col gap-2 grow">
