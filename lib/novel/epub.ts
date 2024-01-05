@@ -114,7 +114,7 @@ const getNavPoints = (toc: Toc) => {
 
 const computeZipPath = (filePath: string, href: string) => {
   const dirPath = filePath.split(sep).slice(0, -1).join(sep);
-  return join(dirPath, href);
+  return join(dirPath, decodeURIComponent(href));
 };
 
 const processXhtmlResources = (resources: EpubResource[]): EpubResource[] => {
@@ -334,12 +334,18 @@ export const saveEpub = async (epub: Epub) => {
       (epub.cover &&
         resourceWithIds.find(resource => resource.savePath === epub.cover?.savePath)?._id) ||
       null;
+    const maxOrder =
+      (
+        await epubCollection
+          .aggregate<{ max: number }>([{ $group: { _id: null, max: { $max: "$order" } } }])
+          .next()
+      )?.max || 0;
     const epubMongo = {
       ...epub,
       resources: resourceIds,
       chapters,
       cover,
-      order: (await epubCollection.countDocuments()) + 1,
+      order: maxOrder + 1,
       timeCreated: new Date(),
       timeUpdated: new Date(),
     };
