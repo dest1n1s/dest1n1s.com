@@ -2,7 +2,7 @@
 
 import { handleRemoveBook } from "@/app/novels/actions";
 import { ButtonProps } from "@nextui-org/react";
-import { ButtonWithConfirm } from "./button-with-confirm";
+import { ButtonWithConfirm } from "../common/button-with-confirm";
 
 export const RemoveNovelButton = ({
   bookName,

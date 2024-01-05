@@ -1,6 +1,6 @@
-import { Drawer } from "@/components/drawer";
-import { Main } from "@/components/main";
-import { Navbar } from "@/components/navbar";
+import { Drawer } from "@/components/layout/drawer";
+import { Main } from "@/components/layout/main";
+import { Navbar } from "@/components/layout/navbar";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
 import "@/styles/globals.css";

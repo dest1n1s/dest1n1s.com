@@ -16,10 +16,10 @@ import clsx from "clsx";
 import NextLink from "next/link";
 
 import { LayoutContext } from "@/app/providers";
-import { ThemeSwitch } from "@/components/theme-switch";
+import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { useContext, useEffect } from "react";
 import { FaBars, FaBarsStaggered, FaGithub, FaSearchengin } from "react-icons/fa6";
-import { IconSwitch } from "./icon-switch";
+import { IconSwitch } from "../common/icon-switch";
 
 export const Navbar = () => {
   const { showDrawer, setShowDrawer, showNavbar, hasDrawer } = useContext(LayoutContext);

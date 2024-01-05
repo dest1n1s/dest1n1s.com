@@ -1,6 +1,6 @@
-import { EpubSearchbar } from "@/components/epub-searchbar";
-import { EpubUploader } from "@/components/epub-uploader";
-import { RemoveNovelButton } from "@/components/remove-novel-button";
+import { EpubSearchbar } from "@/components/ui/epub-searchbar";
+import { EpubUploader } from "@/components/ui/epub-uploader";
+import { RemoveNovelButton } from "@/components/ui/remove-novel-button";
 import { loadInfosCached } from "@/lib/novel/epub.server";
 import { Button, Image, Link } from "@nextui-org/react";
 import { FaArrowDown } from "react-icons/fa6";

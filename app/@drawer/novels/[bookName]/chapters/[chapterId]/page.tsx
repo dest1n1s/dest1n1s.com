@@ -1,6 +1,6 @@
 "use server";
 
-import { DrawerMarker } from "@/components/drawer";
+import { DrawerMarker } from "@/components/layout/drawer";
 import { paginateEpub } from "@/lib/novel/epub";
 import { loadEpubCached } from "@/lib/novel/epub.server";
 import clsx from "clsx";
