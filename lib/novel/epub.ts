@@ -409,7 +409,10 @@ export const loadEpubs = async (searchText?: string): Promise<EpubNoContent[]> =
       },
     },
     {
-      $unwind: "$cover",
+      $unwind: {
+        path: "$cover",
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
       $group: {
