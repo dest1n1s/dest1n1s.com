@@ -15,7 +15,7 @@ export const RemoveNovelButton = ({
       confirmTitle="删除书籍"
       confirmText={`确认删除书籍 ${title} 吗？`}
       onConfirm={async () => {
-        handleRemoveBook(bookName);
+        await handleRemoveBook(bookName);
       }}
     />
   );

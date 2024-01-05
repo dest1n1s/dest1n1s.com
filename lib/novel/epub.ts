@@ -513,7 +513,8 @@ export const retrieveDetailedResource = async (
 export const retrieveResourceWithBookNameAndSavePath = async (
   bookName: string,
   savePath: string,
-): Promise<EpubResource | null> => {
+  noContent: boolean = false,
+): Promise<WithId<EpubResource> | null> => {
   const pipeline = [
     {
       $match: { bookName: bookName },
@@ -535,9 +536,10 @@ export const retrieveResourceWithBookNameAndSavePath = async (
     {
       $replaceRoot: { newRoot: "$resourceDetails" },
     },
+    ...(noContent ? [{ $project: { content: 0 } }] : []),
   ];
 
-  const result = await epubCollection.aggregate<EpubResource>(pipeline).next();
+  const result = await epubCollection.aggregate<WithId<EpubResource>>(pipeline).next();
   return result;
 };
 
@@ -607,13 +609,29 @@ export const removeEpubResource = async (bookName: string, savePath: string) => 
   await withMongoSession(async () => {
     const [epub, resource] = await Promise.all([
       await epubCollection.findOne({ bookName }),
-      await epubResourceCollection
-        .find({ bookName, savePath })
-        .project<WithId<{}>>({ _id: 1 })
-        .next(),
+      await retrieveResourceWithBookNameAndSavePath(bookName, savePath),
     ]);
+
     if (!epub || !resource) {
       throw new Error("Resource not found");
     }
+
+    const newEpub = {
+      ...epub,
+      resources: epub.resources.filter(id => id.toString() !== resource._id.toString()),
+      chapters: epub.chapters
+        .map(chapter => ({
+          ...chapter,
+          sections: chapter.sections.filter(id => id.toString() !== resource._id.toString()),
+        }))
+        .filter(chapter => chapter.sections.length > 0),
+      cover: epub.cover?.toString() === resource._id.toString() ? null : epub.cover,
+      timeUpdated: new Date(),
+    };
+
+    await Promise.all([
+      epubCollection.updateOne({ bookName }, { $set: newEpub }),
+      epubResourceCollection.deleteOne({ _id: resource._id }),
+    ]);
   });
 };

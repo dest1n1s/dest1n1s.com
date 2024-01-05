@@ -19,9 +19,7 @@ export default async function Page({
   const chapters = epub.chapters;
   const chapterIndex = parseInt(chapterId, 10) - 1;
   const chapter = chapters[chapterIndex];
-  const html = (await retrieveDetailedResource(...chapter.sections))
-    .map(resource => resource.content)
-    .join("\n");
+  const sections = await retrieveDetailedResource(...chapter.sections);
 
   const hasPrev = chapterIndex > 0;
   const hasNext = chapterIndex < chapters.length - 1;
@@ -30,23 +28,29 @@ export default async function Page({
     return <div>Chapter not found</div>;
   }
 
-  const node = parse(html, {
-    replace: domNode => {
-      if (domNode instanceof Element) {
-        const { className, ...props } = attributesToProps(domNode.attribs);
-        return (
-          <div {...props} className={clsx(className, "relative")}>
-            <NovelSectionButtons className="absolute top-0 right-0 not-prose" />
-            {domToReact(domNode.children as DOMNode[])}
-          </div>
-        );
-      }
-    },
-  });
+  const nodes = sections.map(section =>
+    parse(section.content, {
+      replace: domNode => {
+        if (domNode instanceof Element) {
+          const { className, ...props } = attributesToProps(domNode.attribs);
+          return (
+            <div {...props} className={clsx(className, "relative")}>
+              <NovelSectionButtons
+                bookName={decodedBookName}
+                savePath={section.savePath}
+                className="absolute top-0 right-0 not-prose"
+              />
+              {domToReact(domNode.children as DOMNode[])}
+            </div>
+          );
+        }
+      },
+    }),
+  );
 
   return (
     <section className="flex flex-col items-center justify-center gap-12">
-      <div className="w-full prose prose-sm md:prose-lg lg:prose-xl">{node}</div>
+      <div className="w-full prose prose-sm md:prose-lg lg:prose-xl">{nodes}</div>
 
       <div className="flex gap-24 md:gap-36 lg:gap-48">
         <Link href={`/novels/${bookName}/chapters/${chapterIndex}`} isDisabled={!hasPrev}>

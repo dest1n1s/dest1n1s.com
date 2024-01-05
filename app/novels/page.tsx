@@ -43,7 +43,10 @@ export default async function Page({ searchParams: { q } }: { searchParams: { q?
                 <p>
                   <span className="text-gray-700 px-2">{epub.metadata.creator}</span>
                   <span className="hidden lg:inline-block text-gray-600 px-2 border-l-1 border-gray-300 border-opacity-30">
-                    添加于 {epub.timeCreated.toISOString().split("T")[0]}
+                    {epub.timeCreated.toISOString() === epub.timeUpdated.toISOString()
+                      ? "创建于"
+                      : "修改于"}{" "}
+                    {epub.timeUpdated.toISOString().split("T")[0]}
                   </span>
                 </p>
               </div>
