@@ -1,7 +1,7 @@
 import { callbackToPromise, noError } from "@/lib/utils/common";
 import { sanitizeFilename } from "@/lib/utils/file";
 import { Container, ContainerSchema } from "@/types/epub/container";
-import { Epub, EpubInfo, EpubResource, NavPoint } from "@/types/epub/epub";
+import { Epub, EpubChapter, EpubResource } from "@/types/epub/epub";
 import { EpubNoContent, EpubResourceNoContent } from "@/types/epub/epub.mongo";
 import { Opf, OpfSchema } from "@/types/epub/opf";
 import { Toc, TocSchema } from "@/types/epub/toc";
@@ -283,22 +283,25 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
       return { ...navPoint, src };
     })
     .sort((a, b) => parseInt(a.playOrder) - parseInt(b.playOrder));
-  const processedSpine = spine.map(id => {
-    const src = processedResources.find(resource => resource.id === id)?.savePath;
-    if (!src) {
-      throw new Error(`Src not found: ${id}`);
+  const processedSpineResources = spine.map(id => {
+    const resource = processedResources.find(resource => resource.id === id);
+    if (!resource) {
+      throw new Error(`Resource not found: ${id}`);
     }
-    return src;
+    return resource;
   });
 
-  const coverId = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$["content"];
-  const coverPath = coverId && processedResources.find(item => item.id === coverId)?.savePath;
+  const coverId: string | undefined = metadata["meta"]?.find(meta => meta.$["name"] === "cover")?.$[
+    "content"
+  ];
+  const cover = (coverId && processedResources.find(item => item.id === coverId)) || null;
+
+  const chapters = paginateEpub(processedSpineResources, processedNavPoints);
 
   return {
     resources: processedResources,
-    navPoints: processedNavPoints,
-    spine: processedSpine,
-    cover: coverPath,
+    chapters,
+    cover,
     metadata: {
       title: metadata["dc:title"][0]._,
       language: metadata["dc:language"]?.[0]?._,
@@ -310,12 +313,32 @@ export const parseEpub = async (path: PathLike): Promise<Epub> => {
 };
 
 export const saveEpub = async (epub: Epub) => {
-  const resourceInsertResult = await epubResourceCollection.insertMany(epub.resources);
-  const resourceIds = Object.values(resourceInsertResult.insertedIds);
   await withMongoSession(async () => {
+    const resourceInsertResult = await epubResourceCollection.insertMany(epub.resources);
+    const resourceIds = Object.values(resourceInsertResult.insertedIds);
+    const resourceWithIds = epub.resources.map((resource, index) => ({
+      ...resource,
+      _id: resourceIds[index],
+    }));
+    const chapters = epub.chapters.map(chapter => ({
+      ...chapter,
+      sections: chapter.sections.map(section => {
+        const resource = resourceWithIds.find(resource => resource.savePath === section.savePath);
+        if (!resource) {
+          throw new Error("Resource not found");
+        }
+        return resource._id;
+      }),
+    }));
+    const cover =
+      (epub.cover &&
+        resourceWithIds.find(resource => resource.savePath === epub.cover?.savePath)?._id) ||
+      null;
     const epubMongo = {
       ...epub,
       resources: resourceIds,
+      chapters,
+      cover,
       order: (await epubCollection.countDocuments()) + 1,
       timeCreated: new Date(),
       timeUpdated: new Date(),
@@ -324,49 +347,33 @@ export const saveEpub = async (epub: Epub) => {
   });
 };
 
-export const loadInfos = async (searchText?: string): Promise<EpubInfo[]> => {
-  // Read bookName, metadata, cover from mongodb
-  const projection = {
-    bookName: 1,
-    metadata: 1,
-    cover: 1,
-    order: 1,
-    timeCreated: 1,
-    timeUpdated: 1,
-  };
-
-  if (!searchText) {
-    return await epubCollection.find().project<EpubInfo>(projection).sort({ order: -1 }).toArray();
-  } else {
-    const pipeline = [
-      {
-        $match: {
-          $or: [
-            { bookName: { $regex: searchText, $options: "i" } },
-            { "metadata.title": { $regex: searchText, $options: "i" } },
-            { "metadata.creator": { $regex: searchText, $options: "i" } },
-          ],
-        },
-      },
-      {
-        $project: projection,
-      },
-      {
-        $sort: {
-          order: -1,
-        },
-      },
-    ];
-    const infos = await epubCollection.aggregate<EpubInfo>(pipeline).toArray();
-    return infos;
-  }
-};
-
-export const loadEpub = async (bookName: string): Promise<EpubNoContent | null> => {
-  // Read from mongodb, without content of resources
-  const pipeline = [
+export const loadEpubs = async (searchText?: string): Promise<EpubNoContent[]> => {
+  const foreignPipeline = [
     {
-      $match: { bookName: bookName },
+      $project: {
+        content: 0,
+      },
+    },
+  ];
+
+  const matchPipeline = searchText
+    ? [
+        {
+          $match: {
+            $or: [
+              { bookName: { $regex: searchText, $options: "i" } },
+              { "metadata.title": { $regex: searchText, $options: "i" } },
+              { "metadata.creator": { $regex: searchText, $options: "i" } },
+            ],
+          },
+        },
+      ]
+    : [];
+
+  const pipeline = [
+    ...matchPipeline,
+    {
+      $unwind: "$chapters",
     },
     {
       $lookup: {
@@ -374,11 +381,112 @@ export const loadEpub = async (bookName: string): Promise<EpubNoContent | null> 
         localField: "resources",
         foreignField: "_id",
         as: "resources",
+        pipeline: foreignPipeline,
       },
     },
     {
+      $lookup: {
+        from: "epubResource",
+        localField: "chapters.sections",
+        foreignField: "_id",
+        as: "chapters.sections",
+        pipeline: foreignPipeline,
+      },
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "cover",
+        foreignField: "_id",
+        as: "cover",
+        pipeline: foreignPipeline,
+      },
+    },
+    {
+      $unwind: "$cover",
+    },
+    {
+      $group: {
+        _id: "$_id",
+        chapters: { $push: "$chapters" },
+        bookName: { $first: "$bookName" },
+        cover: { $first: "$cover" },
+        metadata: { $first: "$metadata" },
+        order: { $first: "$order" },
+        resources: { $first: "$resources" },
+        timeCreated: { $first: "$timeCreated" },
+        timeUpdated: { $first: "$timeUpdated" },
+      },
+    },
+    {
+      $sort: {
+        order: -1,
+      },
+    },
+  ];
+  const epubs = await epubCollection.aggregate<EpubNoContent>(pipeline).toArray();
+
+  return epubs;
+};
+
+export const loadEpub = async (bookName: string): Promise<EpubNoContent | null> => {
+  // Read from mongodb, without content of resources
+  const foreignPipeline = [
+    {
       $project: {
-        "resources.content": 0, // Exclude content field
+        content: 0,
+      },
+    },
+  ];
+
+  const pipeline = [
+    {
+      $match: { bookName },
+    },
+    {
+      $unwind: "$chapters",
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "resources",
+        foreignField: "_id",
+        as: "resources",
+        pipeline: foreignPipeline,
+      },
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "chapters.sections",
+        foreignField: "_id",
+        as: "chapters.sections",
+        pipeline: foreignPipeline,
+      },
+    },
+    {
+      $lookup: {
+        from: "epubResource",
+        localField: "cover",
+        foreignField: "_id",
+        as: "cover",
+        pipeline: foreignPipeline,
+      },
+    },
+    {
+      $unwind: "$cover",
+    },
+    {
+      $group: {
+        _id: "$_id",
+        chapters: { $push: "$chapters" },
+        bookName: { $first: "$bookName" },
+        cover: { $first: "$cover" },
+        metadata: { $first: "$metadata" },
+        order: { $first: "$order" },
+        resources: { $first: "$resources" },
+        timeCreated: { $first: "$timeCreated" },
+        timeUpdated: { $first: "$timeUpdated" },
       },
     },
   ];
@@ -427,16 +535,15 @@ export const retrieveResourceWithBookNameAndSavePath = async (
   return result;
 };
 
-export const paginateEpub = ({ resources, spine, navPoints }: EpubNoContent) => {
-  const xhtmlResources = spine
-    .map(path => resources.find(resource => resource.savePath === path))
-    .flatMap(resource => (resource?.mediaType === "application/xhtml+xml" ? [resource] : []));
-
+export const paginateEpub = (
+  spineResources: EpubResource[],
+  navPoints: { id: string; playOrder: string; src: string }[],
+): EpubChapter[] => {
   // Insert a pseudo navPoint at the beginning
-  const pseudoNavPoint: NavPoint = {
+  const pseudoNavPoint = {
     id: "pseudo",
     playOrder: "-1",
-    src: xhtmlResources[0].savePath,
+    src: spineResources[0].savePath,
   };
 
   const pseudoNavPoints = [pseudoNavPoint, ...navPoints];
@@ -445,16 +552,17 @@ export const paginateEpub = ({ resources, spine, navPoints }: EpubNoContent) => 
   const chapters = pseudoNavPoints
     .map((navPoint, index) => {
       const nextNavPoint = pseudoNavPoints[index + 1];
-      const startIndex = xhtmlResources.findIndex(xhtml => xhtml.savePath === navPoint.src);
+      const startIndex = spineResources.findIndex(s => s.savePath === navPoint.src);
       const endIndex = nextNavPoint
-        ? xhtmlResources.findIndex(xhtml => xhtml.savePath === nextNavPoint.src)
-        : xhtmlResources.length;
+        ? spineResources.findIndex(s => s.savePath === nextNavPoint.src)
+        : spineResources.length;
       return {
-        navPoint,
-        xhtmlList: xhtmlResources.slice(startIndex, endIndex),
+        ...navPoint,
+        src: undefined,
+        sections: spineResources.slice(startIndex, endIndex),
       };
     })
-    .filter(chapter => chapter.xhtmlList.length > 0);
+    .filter(chapter => chapter.sections.length > 0);
 
   return chapters;
 };
@@ -486,5 +594,20 @@ export const swapOrder = async (bookName1: string, bookName2: string) => {
       epubCollection.updateOne({ bookName: bookName1 }, { $set: { order: order2 } }),
       epubCollection.updateOne({ bookName: bookName2 }, { $set: { order: order1 } }),
     ]);
+  });
+};
+
+export const removeEpubResource = async (bookName: string, savePath: string) => {
+  await withMongoSession(async () => {
+    const [epub, resource] = await Promise.all([
+      await epubCollection.findOne({ bookName }),
+      await epubResourceCollection
+        .find({ bookName, savePath })
+        .project<WithId<{}>>({ _id: 1 })
+        .next(),
+    ]);
+    if (!epub || !resource) {
+      throw new Error("Resource not found");
+    }
   });
 };

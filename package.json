@@ -23,6 +23,7 @@
     "eslint-config-next": "14.0.2",
     "filepond-plugin-file-validate-type": "^1.2.8",
     "framer-motion": "^10.16.4",
+    "html-react-parser": "^5.0.11",
     "intl-messageformat": "^10.5.0",
     "jsdom": "^23.0.1",
     "jszip": "^3.10.1",

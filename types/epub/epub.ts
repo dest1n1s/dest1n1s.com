@@ -1,8 +1,8 @@
-export type NavPoint = {
-  src: string;
+export type EpubChapter<Resource = EpubResource> = {
   id: string;
   playOrder: string;
   title?: string;
+  sections: Resource[];
 };
 
 export type EpubResource = {
@@ -13,27 +13,15 @@ export type EpubResource = {
   mediaType: string;
 };
 
-export type Epub = {
-  resources: EpubResource[];
+export type Epub<Resource = EpubResource> = {
+  resources: Resource[];
   bookName: string;
-  navPoints: NavPoint[];
-  spine: string[];
-  cover?: string;
+  chapters: EpubChapter<Resource>[];
+  cover: Resource | null;
   metadata: {
     title: string;
     language?: string;
     creator?: string;
     identifier?: string;
   };
-};
-
-export type EpubInfo = Pick<Epub, "bookName" | "metadata" | "cover"> & {
-  order: number;
-  timeCreated: Date;
-  timeUpdated: Date;
-};
-
-export type SinglePageXhtml = {
-  xhtmlList: EpubResource[];
-  navPoint: NavPoint;
 };
