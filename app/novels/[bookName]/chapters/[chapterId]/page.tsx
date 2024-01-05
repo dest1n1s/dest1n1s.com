@@ -1,9 +1,17 @@
+import { EpubVisibilitySensor } from "@/components/ui/epub-visibility-sensor";
 import { NovelSectionButtons } from "@/components/ui/novel-section-buttons";
 import { retrieveDetailedResource } from "@/lib/novel/epub";
 import { loadEpubCached } from "@/lib/novel/epub.server";
+import { EpubResource } from "@/types/epub/epub";
 import { Button, Link } from "@nextui-org/react";
 import clsx from "clsx";
-import parse, { DOMNode, Element, attributesToProps, domToReact } from "html-react-parser";
+import parse, {
+  DOMNode,
+  Element,
+  HTMLReactParserOptions,
+  attributesToProps,
+  domToReact,
+} from "html-react-parser";
 
 export default async function Page({
   params: { bookName, chapterId },
@@ -28,25 +36,45 @@ export default async function Page({
     return <div>Chapter not found</div>;
   }
 
-  const nodes = sections.map(section =>
-    parse(section.content, {
-      replace: domNode => {
-        if (domNode instanceof Element) {
-          const { className, ...props } = attributesToProps(domNode.attribs);
-          return (
-            <div {...props} className={clsx(className, "relative")}>
-              <NovelSectionButtons
-                bookName={decodedBookName}
-                savePath={section.savePath}
-                className="absolute top-0 right-0 not-prose"
-              />
-              {domToReact(domNode.children as DOMNode[])}
-            </div>
-          );
-        }
-      },
-    }),
-  );
+  const rootSubNodeParserOption = (
+    section: EpubResource,
+    index: number,
+  ): HTMLReactParserOptions => ({
+    replace: domNode => {
+      const el = domNode as Element;
+      if (!el.children) {
+        return;
+      }
+      return (
+        <EpubVisibilitySensor bookName={decodedBookName} savePath={section.savePath} index={index}>
+          {domToReact([domNode])}
+        </EpubVisibilitySensor>
+      );
+    },
+  });
+
+  const rootParserOption = (section: EpubResource): HTMLReactParserOptions => ({
+    replace: domNode => {
+      const el = domNode as Element;
+      const { className, ...props } = attributesToProps(el.attribs);
+      if (!el.children) return;
+
+      return (
+        <div {...props} className={clsx(className, "relative")}>
+          <NovelSectionButtons
+            bookName={decodedBookName}
+            savePath={section.savePath}
+            className="absolute top-0 right-0 not-prose"
+          />
+          {el.children.map((child, index) => {
+            return domToReact([child as DOMNode], rootSubNodeParserOption(section, index));
+          })}
+        </div>
+      );
+    },
+  });
+
+  const nodes = sections.map(section => parse(section.content, rootParserOption(section)));
 
   return (
     <section className="flex flex-col items-center justify-center gap-12">
