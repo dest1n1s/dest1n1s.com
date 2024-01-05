@@ -11,8 +11,6 @@ export default async function Page({ searchParams: { q } }: { searchParams: { q?
 
   const fallbackCover = "https://via.placeholder.com/200x300";
 
-  console.log(epubs[0].chapters);
-
   return (
     <section className="flex flex-col items-center justify-center gap-12 py-8 md:py-10">
       {/* Show cover, title and author for each book */}
