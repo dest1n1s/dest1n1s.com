@@ -29,6 +29,13 @@ module.exports = {
             },
           },
         },
+        sm: {
+          css: {
+            p: {
+              fontSize: theme("fontSize.base"),
+            },
+          },
+        },
       }),
     },
   },
