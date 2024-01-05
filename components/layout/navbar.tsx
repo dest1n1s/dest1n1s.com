@@ -58,8 +58,13 @@ export const Navbar = () => {
         showDrawer && "right-64 lg:right-80",
         !showNavbar && "-top-16",
       )}
+      classNames={{
+        wrapper: "pl-0 pr-0 gap-0",
+      }}
     >
-      <NavbarContent className="basis-1/5 sm:basis-full min-w-0 overflow-hidden" justify="start">
+      <div className="w-6 min-w-0" />
+
+      <NavbarContent className="basis-1/5 sm:basis-full overflow-hidden min-w-0" justify="start">
         <NavbarBrand as="li" className="max-w-fit gap-3">
           <NextLink className="flex items-center justify-start gap-1" href="/">
             <p className="font-bold text-inherit">Dest1n1</p>
@@ -83,13 +88,13 @@ export const Navbar = () => {
         </ul>
       </NavbarContent>
 
-      <NavbarContent className="hidden basis-1/5 sm:flex sm:basis-full" justify="end">
-        <NavbarItem className="hidden gap-2 sm:flex">
-          <Link isExternal href={siteConfig.links.github} aria-label="Github">
-            <FaGithub className="text-default-500" size={22} />
-          </Link>
-          <ThemeSwitch />
-        </NavbarItem>
+      <div className="w-4 shrink-0" />
+
+      <NavbarContent className="basis-1 sm:basis-full" justify="end">
+        <Link isExternal href={siteConfig.links.github} aria-label="Github">
+          <FaGithub className="text-default-500" size={22} />
+        </Link>
+        <ThemeSwitch />
         <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
         <IconSwitch
           active={showDrawer}
@@ -101,20 +106,7 @@ export const Navbar = () => {
         />
       </NavbarContent>
 
-      <NavbarContent className="basis-1 pl-4 sm:hidden" justify="end">
-        <Link isExternal href={siteConfig.links.github} aria-label="Github">
-          <FaGithub className="text-default-500" />
-        </Link>
-        <ThemeSwitch />
-        <IconSwitch
-          active={showDrawer}
-          onActiveChange={setShowDrawer}
-          isDisabled={!hasDrawer}
-          ariaLabel="Show drawer"
-          activeIcon={<FaBars size={22} />}
-          inactiveIcon={<FaBarsStaggered size={22} />}
-        />
-      </NavbarContent>
+      <div className="w-6 shrink-0" />
     </NextUINavbar>
   );
 };
