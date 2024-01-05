@@ -12,7 +12,7 @@ export default async function Drawer({
   params: { bookName: string; chapterId: string };
 }) {
   const decodedBookName = decodeURIComponent(bookName);
-  const epub = await loadEpubCached(decodedBookName, { noImage: true }).catch(() => null);
+  const epub = await loadEpubCached(decodedBookName).catch(() => null);
   if (!epub) {
     return <div>Book not found</div>;
   }
