@@ -1,4 +1,4 @@
-import { EpubVisibilitySensor } from "@/components/ui/epub-visibility-sensor";
+import { EpubVisibilityController, EpubVisibilitySensor } from "@/components/ui/epub-visibility";
 import { NovelSectionButtons } from "@/components/ui/novel-section-buttons";
 import { loadEpubCached, retrieveDetailedResource } from "@/lib/novel/epub.server";
 import { EpubResource } from "@/types/epub/epub";
@@ -63,7 +63,7 @@ export default async function Page({
       if (!el.children) return;
 
       return (
-        <div {...props} className={clsx(className, "relative")}>
+        <div {...props} className={clsx(className, "relative")} key={section.resourceName}>
           <NovelSectionButtons
             bookName={decodedBookName}
             resourceName={section.resourceName}
@@ -81,7 +81,9 @@ export default async function Page({
 
   return (
     <section className="flex flex-col items-center justify-center gap-12">
-      <div className="w-full prose prose-sm md:prose-lg lg:prose-xl dark:prose-invert">{nodes}</div>
+      <div className="w-full prose prose-sm md:prose-lg lg:prose-xl dark:prose-invert">
+        <EpubVisibilityController bookName={bookName}>{nodes}</EpubVisibilityController>
+      </div>
 
       <div className="flex gap-24 md:gap-36 lg:gap-48">
         <Link href={`/novels/${bookName}/chapters/${chapterIndex}`} isDisabled={!hasPrev}>
