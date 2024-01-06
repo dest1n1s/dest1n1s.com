@@ -1,5 +1,4 @@
-import { retrieveResourceWithBookNameAndSavePath } from "@/lib/novel/epub";
-import { join } from "path";
+import { retrieveResourceWithBookNameAndResourceName } from "@/lib/novel/epub.server";
 
 export const revalidate = "force-cache";
 
@@ -7,9 +6,7 @@ export async function GET(
   request: Request,
   { params: { bookName, assetName } }: { params: { bookName: string; assetName: string } },
 ) {
-  const path = join("novels", bookName, "assets", assetName);
-
-  const resource = await retrieveResourceWithBookNameAndSavePath(bookName, path);
+  const resource = await retrieveResourceWithBookNameAndResourceName(bookName, assetName);
 
   if (!resource) {
     return new Response("Asset not found", { status: 404 });

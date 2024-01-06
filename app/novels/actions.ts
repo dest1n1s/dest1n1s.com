@@ -1,6 +1,6 @@
 "use server";
 
-import { removeEpub, swapOrder } from "@/lib/novel/epub";
+import { removeEpub, swapOrder } from "@/lib/novel/epub.server";
 import { revalidatePath } from "next/cache";
 
 export const handleSwapOrder = async (bookName1: string, bookName2: string) => {

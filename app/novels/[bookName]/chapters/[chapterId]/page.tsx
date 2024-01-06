@@ -1,7 +1,6 @@
 import { EpubVisibilitySensor } from "@/components/ui/epub-visibility-sensor";
 import { NovelSectionButtons } from "@/components/ui/novel-section-buttons";
-import { retrieveDetailedResource } from "@/lib/novel/epub";
-import { loadEpubCached } from "@/lib/novel/epub.server";
+import { loadEpubCached, retrieveDetailedResource } from "@/lib/novel/epub.server";
 import { EpubResource } from "@/types/epub/epub";
 import { Button, Link } from "@nextui-org/react";
 import clsx from "clsx";
@@ -46,7 +45,11 @@ export default async function Page({
         return;
       }
       return (
-        <EpubVisibilitySensor bookName={decodedBookName} savePath={section.savePath} index={index}>
+        <EpubVisibilitySensor
+          bookName={decodedBookName}
+          resourceName={section.resourceName}
+          index={index}
+        >
           {domToReact([domNode])}
         </EpubVisibilitySensor>
       );
@@ -63,7 +66,7 @@ export default async function Page({
         <div {...props} className={clsx(className, "relative")}>
           <NovelSectionButtons
             bookName={decodedBookName}
-            savePath={section.savePath}
+            resourceName={section.resourceName}
             className="absolute top-0 right-0 not-prose"
           />
           {el.children.map((child, index) => {

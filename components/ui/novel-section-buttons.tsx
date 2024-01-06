@@ -9,12 +9,12 @@ import { IconSwitch } from "../common/icon-switch";
 
 export type NovelSectionButtonsProps = HTMLAttributes<HTMLDivElement> & {
   bookName: string;
-  savePath: string;
+  resourceName: string;
 };
 
 export const NovelSectionButtons = ({
   bookName,
-  savePath,
+  resourceName,
   className,
   ...props
 }: NovelSectionButtonsProps) => {
@@ -45,7 +45,7 @@ export const NovelSectionButtons = ({
           variant="light"
           size="sm"
           onClick={async () => {
-            await handleRemoveResource(bookName, savePath);
+            await handleRemoveResource(bookName, resourceName);
           }}
         >
           <FaXmark size={20} />

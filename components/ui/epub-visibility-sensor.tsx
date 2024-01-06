@@ -5,14 +5,14 @@ import VisibilitySensor from "react-visibility-sensor";
 
 export type EpubVisibilitySensorProps = {
   bookName: string;
-  savePath: string;
+  resourceName: string;
   index: number;
   children?: React.ReactNode;
 };
 
 export const EpubVisibilitySensor = ({
   bookName,
-  savePath,
+  resourceName,
   index,
   children,
 }: EpubVisibilitySensorProps) => {

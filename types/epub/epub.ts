@@ -8,7 +8,7 @@ export type EpubChapter<Resource = EpubResource> = {
 export type EpubResource = {
   id: string;
   zipPath: string;
-  savePath: string;
+  resourceName: string;
   content: string;
   mediaType: string;
 };

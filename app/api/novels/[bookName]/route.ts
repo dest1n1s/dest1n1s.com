@@ -1,4 +1,4 @@
-import { removeEpub } from "@/lib/novel/epub";
+import { removeEpub } from "@/lib/novel/epub.server";
 import { revalidatePath } from "next/cache";
 
 export async function DELETE(

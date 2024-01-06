@@ -1,4 +1,5 @@
-import { parseEpub, saveEpub } from "@/lib/novel/epub";
+import { parseEpub } from "@/lib/novel/epub";
+import { saveEpub } from "@/lib/novel/epub.server";
 import { writeFile } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { fileSync } from "tmp";

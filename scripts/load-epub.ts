@@ -1,5 +1,6 @@
-import { closeConnection } from "@/lib/database";
-import { parseEpub, saveEpub } from "@/lib/novel/epub";
+import { closeConnection } from "@/lib/database/database";
+import { parseEpub } from "@/lib/novel/epub";
+import { saveEpub } from "@/lib/novel/epub.server";
 import assert from "assert";
 
 const parsePathToEpub = () => {
