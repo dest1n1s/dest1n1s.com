@@ -27,7 +27,7 @@ export default async function Page({ searchParams: { q } }: { searchParams: { q?
           <>
             <div
               key={epub.bookName}
-              className="flex items-center justify-center gap-6 py-4 border-b-1 border-gray-300 border-opacity-30 w-full"
+              className="flex items-center justify-center gap-6 py-4 border-b-1 border-divider border-opacity-30 w-full"
             >
               <div className="shrink-0">
                 <Image
@@ -46,8 +46,8 @@ export default async function Page({ searchParams: { q } }: { searchParams: { q?
               <div className="flex flex-col gap-2 grow shrink">
                 <h3 className="text-xl font-bold px-2">{epub.metadata.title}</h3>
                 <p>
-                  <span className="text-gray-700 px-2">{epub.metadata.creator}</span>
-                  <span className="hidden lg:inline-block text-gray-600 px-2 border-l-1 border-gray-300 border-opacity-30">
+                  <span className="text-default-700 px-2">{epub.metadata.creator}</span>
+                  <span className="hidden lg:inline-block text-default-600 px-2 border-l-1 border-divider border-opacity-30">
                     {epub.timeCreated.toISOString() === epub.timeUpdated.toISOString()
                       ? "创建于"
                       : "修改于"}{" "}

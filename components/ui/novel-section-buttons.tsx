@@ -26,7 +26,7 @@ export const NovelSectionButtons = ({
       className={clsx(
         "flex flex-col gap-2 items-center rounded-lg",
         className,
-        showDetail && "shadow-sm bg-stone-100 bg-opacity-60",
+        showDetail && "shadow-sm bg-foreground-100 bg-opacity-60",
       )}
     >
       <IconSwitch
