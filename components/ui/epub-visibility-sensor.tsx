@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import VisibilitySensor from "react-visibility-sensor";
+import { useInView } from "framer-motion";
+import { Children, useEffect, useRef } from "react";
 
 export type EpubVisibilitySensorProps = {
   bookName: string;
@@ -16,7 +16,11 @@ export const EpubVisibilitySensor = ({
   index,
   children,
 }: EpubVisibilitySensorProps) => {
-  const [visible, setVisible] = useState(false);
+  const element = Children.only(children) as React.ReactElement;
+  const ref = useRef(null);
+  const isInView = useInView(ref);
 
-  return <VisibilitySensor onChange={(isVisible: boolean) => {}}>{children}</VisibilitySensor>;
+  useEffect(() => {}, [bookName, index, isInView, resourceName]);
+
+  return <element.type {...element.props} ref={ref} />;
 };
