@@ -1,33 +1,41 @@
-ARG BUN_VERSION=1.0.21
+FROM imbios/bun-node:18-slim AS deps
+ARG DEBIAN_FRONTEND=noninteractive
 
-FROM oven/bun:${BUN_VERSION} as base
-
+# I use Asia/Jakarta as my timezone, you can change it to your timezone
+RUN apt-get -y update && \
+  apt-get install -yq openssl git ca-certificates tzdata && \
+  ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime && \
+  dpkg-reconfigure -f noninteractive tzdata
 WORKDIR /app
 
-ENV NODE_ENV=production
-
-FROM base as deps
-
+# Install dependencies based on the preferred package manager
 COPY package.json bun.lockb ./
-RUN bun install
+RUN bun install --frozen-lockfile
 
-FROM node:20 as build
+# Build the app
+FROM deps AS builder
+WORKDIR /app
+COPY . .
 
+RUN bun run build
+
+# Production image, copy all the files and run next
+FROM node:18-slim AS runner
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build -- --no-lint
+ARG CONFIG_FILE
+COPY $CONFIG_FILE /app/.env
+ENV NODE_ENV production
+# Uncomment the following line in case you want to disable telemetry during runtime.
+# ENV NEXT_TELEMETRY_DISABLED 1
 
-FROM base as final
-
-USER bun
-
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
+COPY --from=builder  /app/.next/standalone ./
+COPY --from=builder  /app/.next/static ./static
+COPY --from=builder  /app/public ./public
+COPY --from=builder  /app/migrations ./migrations
 
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+ENV PORT 3000
+
+CMD ["node", "server.js"]
