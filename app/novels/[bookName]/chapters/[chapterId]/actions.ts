@@ -5,5 +5,5 @@ import { revalidatePath } from "next/cache";
 
 export const handleRemoveResource = async (bookName: string, resourceName: string) => {
   await removeEpubResource(bookName, resourceName);
-  revalidatePath("/novels/[bookName]/chapters/[chapterId]");
+  revalidatePath("/novels/[bookName]/chapters/[chapterId]", "page");
 };
