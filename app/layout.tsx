@@ -3,6 +3,7 @@ import { Main } from "@/components/layout/main";
 import { Navbar } from "@/components/layout/navbar";
 import { fontSans } from "@/config/fonts";
 import { siteConfig } from "@/config/site";
+import { auth } from "@/lib/auth";
 import "@/styles/globals.css";
 import clsx from "clsx";
 import { Metadata, Viewport } from "next";
@@ -28,18 +29,19 @@ export const viewports: Viewport = {
   ],
 };
 
-export default function Layout({
+export default async function Layout({
   children,
   drawer,
 }: {
   children: React.ReactNode;
   drawer?: React.ReactNode;
 }) {
+  const session = await auth();
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={clsx("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
-        <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
+        <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }} session={session}>
           <div className="relative flex h-screen w-screen">
             <Navbar />
             <Main>

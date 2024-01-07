@@ -9,10 +9,10 @@ const mongoClient = new MongoClient(mongodbUrl, {
 
 const db = mongoClient.db(mongodbDbName);
 
-export const mongoConnectPromise = mongoClient
-  .connect()
-  .then(client => migrationUp(db, client))
-  .catch(console.error);
+export const mongoConnectPromise = mongoClient.connect().then(client => {
+  migrationUp(db, client);
+  return client;
+});
 
 export const withMongoSession = async <T>(callback: () => Promise<T>) => {
   await mongoConnectPromise;
