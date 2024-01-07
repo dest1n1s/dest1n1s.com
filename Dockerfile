@@ -1,33 +1,33 @@
-ARG BUN_VERSION=1.0.21
+# Use the official Node.js image as the base image
+FROM imbios/bun-node:latest as builder
 
-FROM oven/bun:${BUN_VERSION} as base
-
+# Set the working directory inside the container
 WORKDIR /app
 
-ENV NODE_ENV=production
-
-FROM base as deps
-
+# Copy the package.json and bun.lockb files to the working directory
 COPY package.json bun.lockb ./
+
+# Install the app dependencies
 RUN bun install
 
-FROM node:20 as build
+# Copy the rest of the app files to the working directory
+COPY . .
+
+RUN bun run build
+
+FROM imbios/bun-node:latest as runner
 
 WORKDIR /app
+COPY --from=builder /app/package.json /app/bun.lockb /app/tsconfig.json ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/.next ./.next
+RUN bun install --production
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build -- --no-lint
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-FROM base as final
-
-USER bun
-
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-
+# Expose the port on which the app will run
 EXPOSE 3000
 
+# Start the app
 CMD ["bun", "run", "start"]
