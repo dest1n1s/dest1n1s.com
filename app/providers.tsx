@@ -1,6 +1,7 @@
 "use client";
 
 import { NextUIProvider } from "@nextui-org/react";
+import { SessionProvider } from "next-auth/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { ThemeProviderProps } from "next-themes/dist/types";
 import { useRouter } from "next/navigation";
@@ -9,6 +10,7 @@ import * as React from "react";
 export interface ProvidersProps {
   children: React.ReactNode;
   themeProps?: ThemeProviderProps;
+  session: any;
 }
 
 export const LayoutContext = React.createContext<{
@@ -27,7 +29,7 @@ export const LayoutContext = React.createContext<{
   setShowNavbar: () => {},
 });
 
-export function Providers({ children, themeProps }: ProvidersProps) {
+export function Providers({ children, themeProps, session }: ProvidersProps) {
   const router = useRouter();
   const [showDrawer, setShowDrawer] = React.useState(false);
   const [showNavbar, setShowNavbar] = React.useState(true);
@@ -39,7 +41,7 @@ export function Providers({ children, themeProps }: ProvidersProps) {
         <LayoutContext.Provider
           value={{ showDrawer, setShowDrawer, showNavbar, setShowNavbar, hasDrawer, setHasDrawer }}
         >
-          {children}
+          <SessionProvider session={session}>{children}</SessionProvider>
         </LayoutContext.Provider>
       </NextThemesProvider>
     </NextUIProvider>

@@ -11,6 +11,7 @@
     "load-epub": "bun run scripts/load-epub.ts"
   },
   "dependencies": {
+    "@auth/mongodb-adapter": "^2.0.11",
     "@next/bundle-analyzer": "^14.0.4",
     "@nextui-org/react": "^2.2.9",
     "@nextui-org/shared-icons": "^2.0.6",
@@ -31,6 +32,7 @@
     "migrate-mongo": "^11.0.0",
     "mongodb": "^6.3.0",
     "next": "14.0.4",
+    "next-auth": "^4.24.5",
     "next-compose-plugins": "^2.2.1",
     "next-themes": "^0.2.1",
     "postcss": "8.4.31",

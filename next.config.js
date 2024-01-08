@@ -16,5 +16,6 @@ module.exports = withPlugins(
       // config.experiments.topLevelAwait = true
       return config;
     },
+    output: "standalone",
   },
 );
