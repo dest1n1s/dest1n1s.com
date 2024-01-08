@@ -44,6 +44,11 @@ export default async function Page({
       if (!el.children) {
         return;
       }
+      if (el.children.length === 1 && el.children[0].type === "text") {
+        if (el.children[0].data.trim().length === 0) {
+          return <></>;
+        }
+      }
       return (
         <EpubVisibilitySensor
           bookName={decodedBookName}
