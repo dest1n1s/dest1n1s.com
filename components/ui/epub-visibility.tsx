@@ -42,7 +42,7 @@ export const EpubVisibilityController = ({
           ? a.index - b.index
           : b.index - a.index,
       );
-      const targetElement = sortedVisibleElements[sortedVisibleElements.length - 1];
+      const targetElement = sortedVisibleElements[0];
       localStorage.setItem(
         `${bookName}-scroll-target`,
         JSON.stringify({
