@@ -1,3 +1,4 @@
+import { githubId, githubSecret, mongodbDbName } from "@/config/env";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import type { GetServerSidePropsContext, NextApiRequest, NextApiResponse } from "next";
 import type { NextAuthOptions } from "next-auth";
@@ -7,11 +8,13 @@ import GithubProvider from "next-auth/providers/github";
 import { mongoConnectPromise } from "./database/database";
 
 export const authOptions = {
-  adapter: MongoDBAdapter(mongoConnectPromise) as Adapter,
+  adapter: MongoDBAdapter(mongoConnectPromise, {
+    databaseName: mongodbDbName,
+  }) as Adapter,
   providers: [
     GithubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
+      clientId: githubId,
+      clientSecret: githubSecret,
       allowDangerousEmailAccountLinking: true,
     }),
     // ...add more providers here
