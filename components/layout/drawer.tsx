@@ -9,13 +9,18 @@ type DrawerProps = {
 };
 
 export const Drawer: React.FC<DrawerProps> = ({ children }) => {
-  const { showDrawer } = useContext(LayoutContext);
+  const { showDrawer, hasDrawer } = useContext(LayoutContext);
+
+  useEffect(() => {
+    console.log("Drawer", { showDrawer, hasDrawer });
+  }, [showDrawer, hasDrawer]);
+
   return (
     <div
       className={clsx(
         "bg-default-100 transition-all duration-300 ease-in-out overflow-hidden fixed right-0 h-screen z-10 overflow-y-scroll",
-        showDrawer && "w-64 lg:w-80",
-        !showDrawer && "w-0",
+        hasDrawer && showDrawer && "w-64 lg:w-80",
+        !(hasDrawer && showDrawer) && "w-0",
       )}
     >
       <div className="flex flex-col items-center h-full w-64 lg:w-80">{children}</div>

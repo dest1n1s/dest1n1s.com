@@ -1,9 +1,10 @@
+import { LinkButton } from "@/components/common/link-button";
 import { EpubSearchbar } from "@/components/ui/epub-searchbar";
 import { EpubUploader } from "@/components/ui/epub-uploader";
 import { RemoveNovelButton } from "@/components/ui/remove-novel-button";
 import { computeEpubResourceUrl } from "@/lib/novel/epub";
 import { loadEpubsCached } from "@/lib/novel/epub.server";
-import { Button, Image, Link } from "@nextui-org/react";
+import { Button, Image } from "@nextui-org/react";
 import { FaArrowDown } from "react-icons/fa6";
 import { handleSwapOrder } from "./actions";
 
@@ -56,11 +57,15 @@ export default async function Page({ searchParams: { q } }: { searchParams: { q?
                 </p>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
-                <Link href={`/novels/${epub.bookName}/chapters/1`}>
-                  <Button size="sm" className="text-sm self-end" color="primary" radius="lg">
-                    阅读
-                  </Button>
-                </Link>
+                <LinkButton
+                  size="sm"
+                  className="text-sm self-end"
+                  color="primary"
+                  radius="lg"
+                  href={`/novels/${epub.bookName}/chapters/1`}
+                >
+                  阅读
+                </LinkButton>
                 <RemoveNovelButton
                   bookName={epub.bookName}
                   title={epub.metadata.title}

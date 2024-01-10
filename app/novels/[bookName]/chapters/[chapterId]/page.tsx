@@ -1,8 +1,8 @@
+import { LinkButton } from "@/components/common/link-button";
 import { EpubVisibilityController, EpubVisibilitySensor } from "@/components/ui/epub-visibility";
 import { NovelSectionButtons } from "@/components/ui/novel-section-buttons";
 import { loadEpubCached, retrieveDetailedResource } from "@/lib/novel/epub.server";
 import { EpubResource } from "@/types/epub/epub";
-import { Button, Link } from "@nextui-org/react";
 import clsx from "clsx";
 import parse, {
   DOMNode,
@@ -91,22 +91,26 @@ export default async function Page({
       </div>
 
       <div className="flex gap-24 md:gap-36 lg:gap-48">
-        <Link href={`/novels/${bookName}/chapters/${chapterIndex}`} isDisabled={!hasPrev}>
-          <Button size="sm" className="text-sm" color="primary" isDisabled={!hasPrev} radius="lg">
-            {hasPrev ? `上一章：${chapters[chapterIndex - 1].title || "(无题)"}` : "没有上一章"}
-          </Button>
-        </Link>
-        <Link href={`/novels/${bookName}/chapters/${chapterIndex + 2}`} isDisabled={!hasNext}>
-          <Button
-            size="sm"
-            className="text-sm bg-gradient-to-br from-indigo-500 to-pink-500 text-white shadow-lg"
-            color="primary"
-            radius="lg"
-            isDisabled={!hasNext}
-          >
-            {hasNext ? `下一章：${chapters[chapterIndex + 1].title || "(无题)"}` : "全文终"}
-          </Button>
-        </Link>
+        <LinkButton
+          size="sm"
+          className="text-sm"
+          color="primary"
+          isDisabled={!hasPrev}
+          radius="lg"
+          href={hasPrev ? `/novels/${bookName}/chapters/${chapterIndex}` : undefined}
+        >
+          {hasPrev ? `上一章：${chapters[chapterIndex - 1].title || "(无题)"}` : "没有上一章"}
+        </LinkButton>
+        <LinkButton
+          size="sm"
+          className="text-sm bg-gradient-to-br from-indigo-500 to-pink-500 text-white shadow-lg"
+          color="primary"
+          radius="lg"
+          isDisabled={!hasNext}
+          href={hasNext ? `/novels/${bookName}/chapters/${chapterIndex + 2}` : undefined}
+        >
+          {hasNext ? `下一章：${chapters[chapterIndex + 1].title || "(无题)"}` : "全文终"}
+        </LinkButton>
       </div>
     </section>
   );
