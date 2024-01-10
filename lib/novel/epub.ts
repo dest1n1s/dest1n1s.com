@@ -163,9 +163,13 @@ const processXhtmlResources = (bookName: string, resources: EpubResource[]): Epu
             const attribute = element.getAttribute(replace.attribute);
             if (attribute && computeZipPath(resource.zipPath, attribute) === r.zipPath) {
               element.setAttribute(
-                replace.attribute,
-                computeEpubResourceUrl(bookName, r.resourceName),
+                "resource",
+                JSON.stringify({
+                  resourceName: r.resourceName,
+                  attribute: replace.attribute,
+                }),
               );
+              element.removeAttribute(replace.attribute);
             }
           });
         });

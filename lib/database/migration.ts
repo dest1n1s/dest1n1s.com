@@ -34,7 +34,9 @@ export const migrationUp = async (db: Db, client: MongoClient) => {
     try {
       return await session.withTransaction(async () => {
         await migration.up(db, client);
-        await db.collection("migrations").insertOne({ fileName: fileName });
+        await db
+          .collection("migrations")
+          .updateOne({}, { $set: { order: parseInt(fileName.split("-")[0]) } });
         console.log("Successfully migrated:", fileName);
       });
     } finally {

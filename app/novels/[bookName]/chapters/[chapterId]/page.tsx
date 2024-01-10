@@ -1,8 +1,10 @@
 import { LinkButton } from "@/components/common/link-button";
 import { EpubVisibilityController, EpubVisibilitySensor } from "@/components/ui/epub-visibility";
 import { NovelSectionButtons } from "@/components/ui/novel-section-buttons";
+import { computeEpubResourceUrl } from "@/lib/novel/epub";
 import { loadEpubCached, retrieveDetailedResource } from "@/lib/novel/epub.server";
 import { EpubResource } from "@/types/epub/epub";
+import { Image, Link } from "@nextui-org/react";
 import clsx from "clsx";
 import parse, {
   DOMNode,
@@ -11,6 +13,7 @@ import parse, {
   attributesToProps,
   domToReact,
 } from "html-react-parser";
+import { JSDOM } from "jsdom";
 
 export default async function Page({
   params: { bookName, chapterId },
@@ -35,6 +38,64 @@ export default async function Page({
     return <div>Chapter not found</div>;
   }
 
+  const preTransform = (html: string) => {
+    const dom = new JSDOM(html);
+    const document = dom.window.document;
+    // Transform svg with image to img
+    const svgs = document.querySelectorAll("svg");
+    svgs.forEach(svg => {
+      if (svg.children.length === 1 && svg.children[0].tagName === "image") {
+        const image = svg.children[0];
+        const src = image.getAttribute("xlink:href") || image.getAttribute("href");
+        const alt = image.getAttribute("alt");
+        const className = svg.getAttribute("class");
+        const resource = image.getAttribute("resource");
+        const img = document.createElement("img");
+        if (src) {
+          img.setAttribute("src", src);
+        }
+        if (alt) {
+          img.setAttribute("alt", alt);
+        }
+        if (className) {
+          img.setAttribute("class", className);
+        }
+        if (resource) {
+          img.setAttribute("resource", resource);
+        }
+        svg.replaceWith(img);
+      }
+    });
+    return document.body.innerHTML;
+  };
+
+  const parserOption = {
+    replace: (domNode: DOMNode) => {
+      const el = domNode as Element;
+      const tagName = el.name;
+      if (!el.attribs || !el.attribs.resource) {
+        return;
+      }
+      const { resource, ...attr } = el.attribs;
+      const src = JSON.parse(resource).resourceName;
+      const url = computeEpubResourceUrl(decodedBookName, src);
+      if (tagName === "img") {
+        // eslint-disable-next-line jsx-a11y/alt-text
+        return <Image src={url} {...attributesToProps(attr)} />;
+      } else if (tagName === "image") {
+        return <image xlinkHref={url} {...attributesToProps(attr)} />;
+      } else if (tagName === "a" || tagName === "link") {
+        return (
+          <Link href={computeEpubResourceUrl(decodedBookName, src)} {...attributesToProps(attr)}>
+            {domToReact(el.children as DOMNode[], parserOption)}
+          </Link>
+        );
+      } else {
+        return;
+      }
+    },
+  };
+
   const rootSubNodeParserOption = (
     section: EpubResource,
     index: number,
@@ -55,7 +116,7 @@ export default async function Page({
           resourceName={section.resourceName}
           index={index}
         >
-          {domToReact([domNode])}
+          {domToReact([domNode], parserOption)}
         </EpubVisibilitySensor>
       );
     },
@@ -82,7 +143,9 @@ export default async function Page({
     },
   });
 
-  const nodes = sections.map(section => parse(section.content, rootParserOption(section)));
+  const nodes = sections.map(section =>
+    parse(preTransform(section.content), rootParserOption(section)),
+  );
 
   return (
     <section className="flex flex-col items-center justify-center gap-12">

@@ -23,10 +23,10 @@ module.exports = {
             div: {
               width: "100%",
             },
-            img: {
-              margin: "auto",
-              width: "80%",
-            },
+            // img: {
+            //   margin: "auto",
+            //   width: "80%",
+            // },
           },
         },
         sm: {
