@@ -104,7 +104,7 @@ const getNavPoints = (toc: Toc) => {
   return toc.ncx.navMap[0].navPoint.map(navPoint => ({
     id: navPoint.$.id,
     playOrder: navPoint.$.playOrder,
-    src: decodeURIComponent(navPoint.content[0].$.src),
+    src: decodeURIComponent(navPoint.content[0].$.src).split("#")[0], // Remove anchor
     title: navPoint.navLabel[0].text[0]["_"],
   }));
 };
